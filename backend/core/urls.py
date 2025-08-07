@@ -21,7 +21,7 @@ from django.conf import settings             # Importe settings
 from django.conf.urls.static import static # Importe static
 
 urlpatterns = [
-    path('api/auth/', include('inventory.urls')),  # Inclui as URLs do app inventory
+    path('api/', include('inventory.urls')),  # Inclui as URLs do app inventory
     path('admin/', admin.site.urls),
 ]
 

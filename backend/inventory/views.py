@@ -1,10 +1,10 @@
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 from rest_framework import generics, filters
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.throttling import UserRateThrottle
 from drf_yasg.utils import swagger_auto_schema
-from django.utils.decorators import method_decorator
-from django.views.decorators.cache import cache_page
 from rest_framework.permissions import IsAuthenticated  # Adicionado
 from rest_framework.exceptions import PermissionDenied  # Adicionado
 from rest_framework.authtoken.views import ObtainAuthToken
@@ -13,6 +13,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework import status
 from .models import Item
 from .serializers import ItemSerializer
+
 
 class CustomAuthToken(ObtainAuthToken):
     """
