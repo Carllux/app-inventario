@@ -1,31 +1,257 @@
-body {
-  font-family: sans-serif;
-  background-color: #f4f4f9;
+/* --- 1. Variáveis Globais e Reset --- */
+
+:root {
+  /* Paleta de Cores */
+  --color-primary: #007bff;
+  --color-primary-dark: #0056b3;
+  --color-success: #28a745;
+  --color-success-dark: #218838;
+  --color-danger: #dc3545;
+  --color-danger-dark: #c82333;
+  --color-light: #f5f5f5;
+  --color-light-hover: #e8e8e8;
+  --color-white: #ffffff;
+  --color-text: #333;
+  --color-text-muted: #666;
+  --color-border: #e0e0e0;
+  --color-background: #f4f4f9;
+
+  /* Medidas */
+  --border-radius: 8px;
+  --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* Reset Básico */
+* {
+  box-sizing: border-box;
   margin: 0;
-  padding: 20px;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background-color: var(--color-background);
+  color: var(--color-text);
+}
+
+hr {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 1.5rem 0;
+}
+
+/* --- 2. Componentes Reutilizáveis --- */
+
+/* Estilo Base para Botões */
+.button {
+  border: none;
+  border-radius: 5px;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  text-align: center;
+}
+
+.button-primary {
+  background-color: var(--color-primary);
+  color: var(--color-white);
+}
+.button-primary:hover {
+  background-color: var(--color-primary-dark);
+}
+
+.button-success {
+  background-color: var(--color-success);
+  color: var(--color-white);
+}
+.button-success:hover {
+  background-color: var(--color-success-dark);
+}
+
+.button-light {
+    background-color: var(--color-light);
+    color: var(--color-text);
+}
+.button-light:hover {
+    background-color: var(--color-light-hover);
+}
+
+/* Estilo Base para Cards */
+.card {
+  background-color: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+  overflow: hidden;
+}
+
+/* Navbar */
+.navbar {
+  background-color: var(--color-white);
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  margin-bottom: 2rem;
+}
+
+.navbar-brand .navbar-item {
+  font-size: 1.5rem;
+  text-decoration: none;
+  color: var(--color-text);
+  font-weight: bold;
+}
+
+/* --- 3. Layouts de Página Específicos --- */
+
+/* Página de Login */
+.login-page-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+
+.login-banner {
+  height: 100px;
+  margin-bottom: 2rem;
+}
+
+.login-card {
+  padding: 2rem 2.5rem;
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+}
+
+.login-card .form-group {
+  margin-bottom: 1.5rem;
+  text-align: left;
+}
+
+.login-card .form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.login-card .form-group input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+.login-error {
+  color: var(--color-danger);
+  margin-bottom: 1rem;
+}
+
+/* Página de Inventário */
+.inventory-page-content {
+  padding: 0 2rem;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.status-message {
+  text-align: center;
+  font-size: 1.2rem;
+  color: var(--color-text-muted);
+  margin-top: 3rem;
 }
 
 .item-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 20px;
 }
 
 .item-card {
-  background-color: #fff;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 16px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  display: flex;
+  flex-direction: column;
 }
 
-.item-card img {
-  max-width: 100%;
-  height: auto;
-  border-radius: 4px;
-  margin-bottom: 12px;
+.item-image-container {
+  width: 100%;
+  height: 200px;
+  overflow: hidden;
+  background-color: var(--color-light);
 }
 
-.item-card h2 {
+.item-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.item-content {
+  padding: 1rem;
+  flex-grow: 1;
+}
+
+.item-name {
   margin-top: 0;
+  margin-bottom: 0.5rem;
+}
+
+.item-short-desc {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  margin-bottom: 1rem;
+  min-height: 40px;
+}
+
+.item-details-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.item-detail {
+  margin: 0;
+}
+
+.item-actions {
+  padding: 1rem;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  gap: 10px;
+}
+
+.item-actions .button {
+  flex-grow: 1;
+  padding: 0.5rem;
+  border-radius: 4px;
+  background-color: transparent;
+  font-weight: 600;
+}
+
+.item-actions .button-edit {
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+}
+.item-actions .button-edit:hover {
+  background-color: var(--color-primary);
+  color: var(--color-white);
+}
+
+.item-actions .button-delete {
+  color: var(--color-danger);
+  border: 1px solid var(--color-danger);
+}
+.item-actions .button-delete:hover {
+  background-color: var(--color-danger);
+  color: var(--color-white);
 }

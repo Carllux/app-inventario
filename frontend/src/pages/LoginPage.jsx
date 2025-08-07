@@ -1,8 +1,9 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { login } from '../services/auth';
 
-// Recebemos a prop 'onLogin'
-function Login({ onLogin }) {
+function LoginPage() { 
+  const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -12,41 +13,56 @@ function Login({ onLogin }) {
     setError('');
     try {
       await login(username, password);
-      // AVISAMOS AO COMPONENTE PAI QUE O LOGIN FOI UM SUCESSO!
-      onLogin(); 
+      navigate('/home'); // Navega após o sucesso
     } catch (err) {
-      setError(err.message); // Exibe o erro na tela
+      setError(err.message);
     }
   };
 
   return (
-    <div className="login-form">
-      <h2>Login</h2>
-      {error && <p className="error" style={{ color: 'red' }}>{error}</p>}
-      <form onSubmit={handleSubmit}>
-        {/* ... seu formulário continua o mesmo ... */}
-        <div>
-          <label>Usuário:</label>
-          <input 
-            type="text" 
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            required
-          />
-        </div>
-        <div>
-          <label>Senha:</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-        </div>
-        <button type="submit">Entrar</button>
-      </form>
+    // Contêiner principal para centralizar tudo na página
+    <div className="login-page-container">
+      
+      {/* Espaço reservado para um futuro banner ou logo */}
+      <div className="login-banner">
+        {/* Você pode colocar um <img> ou um <h1> aqui no futuro */}
+      </div>
+
+      {/* O "cartão" que conterá o formulário */}
+      <div className="login-card">
+        <h2>Login</h2>
+        {error && <p className="login-error">{error}</p>}
+        
+        <form onSubmit={handleSubmit}>
+          
+          <div className="form-group">
+            <label htmlFor="username">Usuário:</label>
+            <input 
+              id="username"
+              type="text" 
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+            />
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="password">Senha:</label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+          
+          <button type="submit" className="login-button">Entrar</button>
+
+        </form>
+      </div>
     </div>
   );
 }
 
-export default Login;
+export default LoginPage;
