@@ -1,46 +1,60 @@
 import React from 'react';
 
-// Um componente simples para exibir um par de rótulo e valor, evitando repetição.
-const Detail = ({ label, value }) => (
-  <p className="item-detail">
-    <strong>{label}:</strong> {value}
-  </p>
-);
+// Componente auxiliar agora trata o '0' como um valor válido
+const Detail = ({ label, value, className = '' }) => {
+  // A condição foi ajustada para exibir o número 0
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  return (
+    <div className={`item-detail ${className}`}>
+      <strong>{label}:</strong>
+      <span>{value}</span>
+    </div>
+  );
+};
 
-function ItemCard({ item }) {
-  // Objeto para mapear os códigos de unidade de medida para seus nomes completos.
-  const unitMap = {
-    PC: 'Peça(s)',
-    BOX: 'Caixa(s)',
-    PAIR: 'Par(es)',
-    KIT: 'Kit(s)',
-  };
+// Adicionamos a prop 'onAddMovement' para receber a função que abre o modal
+function ItemCard({ item, onAddMovement }) {
+  const cardClasses = `card item-card ${item.is_low_stock ? 'low-stock-warning' : ''}`;
 
   return (
-    <div className="item-card">
-      {item.photo && (
+    <div className={cardClasses}>
+      {item.is_low_stock && <div className="low-stock-alert">ESTOQUE BAIXO</div>}
+
+      {item.photo ? (
         <div className="item-image-container">
           <img src={item.photo} alt={item.name} className="item-image" />
+        </div>
+      ) : (
+        <div className="item-image-placeholder">
+          <span>Sem Imagem</span>
         </div>
       )}
       
       <div className="item-content">
-        <h2 className="item-name">{item.name}</h2>
-        <p className="item-short-desc">{item.short_description}</p>
+        {item.category && <p className="item-category">{item.category.name}</p>}
+        <h2 className="item-name" title={item.name}>{item.name}</h2>
+        <p className="item-sku">SKU: {item.sku}</p>
         
         <div className="item-details-grid">
-          <Detail label="Quantidade" value={`${item.quantity} ${unitMap[item.unit_of_measure] || item.unit_of_measure}`} />
-          <Detail label="Preço de Compra" value={`R$ ${item.purchase_price}`} />
-          {item.brand && <Detail label="Marca" value={item.brand} />}
-          {item.origin && <Detail label="Origem" value={item.origin} />}
-          {item.weight && <Detail label="Peso" value={`${item.weight} kg`} />}
+          {/* O valor agora é um número, permitindo a checagem correta */}
+          <Detail label="Estoque Total" value={`${item.total_quantity} ${item.unit_of_measure || ''}`} />
+          <Detail label="Preço de Venda" value={`R$ ${item.sale_price}`} />
+          <Detail label="Marca" value={item.brand} />
+          <Detail label="Fornecedor" value={item.supplier?.name} />
         </div>
       </div>
       
-      {/* Botões de ação que adicionaremos no futuro */}
       <div className="item-actions">
-        <button className="button button-edit">Editar</button>
-        <button className="button button-delete">Deletar</button>
+        {/* O novo botão de movimentação chama a função passada como prop */}
+        <button 
+          className="button button-outline button-success"
+          onClick={() => onAddMovement(item)} // Passa o item específico
+        >
+          Movimentar
+        </button>
+        <button className="button button-outline button-primary">Detalhes</button>
       </div>
     </div>
   );

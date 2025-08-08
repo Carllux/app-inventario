@@ -57,7 +57,7 @@ function LoginPage() {
             />
           </div>
           
-          <button type="submit" className="login-button">Entrar</button>
+          <button type="submit" className="button button-primary">Entrar</button>
 
         </form>
       </div>

@@ -13,6 +13,14 @@ from rest_framework.authtoken.models import Token
 from rest_framework import status
 from .models import Item
 from .serializers import ItemSerializer
+from rest_framework.permissions import IsAuthenticated, AllowAny 
+from .models import Location
+from .serializers import LocationSerializer
+
+
+# Importe os novos modelos e serializadores necessários
+from .models import StockMovement
+from .serializers import StockMovementSerializer
 
 
 class CustomAuthToken(ObtainAuthToken):
@@ -56,10 +64,11 @@ class ItemList(generics.ListAPIView):
     
     filterset_fields = {
         'brand': ['exact', 'icontains'],
-        'quantity': ['gte', 'lte', 'exact'],
+        # 'quantity': ['gte', 'lte', 'exact'], # <-- REMOVA OU COMENTE ESTA LINHA
         'purchase_price': ['gte', 'lte', 'exact'],
-        'unit_of_measure': ['exact'],
-        'created_at': ['gte', 'lte', 'exact'],
+        'sale_price': ['gte', 'lte'], # Podemos adicionar o preço de venda também
+        'status': ['exact'], # E o status
+        'category__name': ['exact', 'icontains'], # Exemplo de filtro através de relacionamento
     }
     
     search_fields = ['name', 'brand', 'short_description', 'long_description']
@@ -94,3 +103,29 @@ class ItemList(generics.ListAPIView):
             queryset = Item.objects.all()
             
         return queryset
+    
+# ADICIONE A NOVA VIEW ABAIXO
+class StockMovementCreate(generics.CreateAPIView):
+    """
+    Endpoint para criar uma nova movimentação de estoque.
+    A lógica no método save() do modelo StockMovement cuidará de
+    atualizar a quantidade no modelo StockItem.
+    """
+    queryset = StockMovement.objects.all()
+    serializer_class = StockMovementSerializer
+    permission_classes = [IsAuthenticated] # Apenas usuários logados podem criar movimentações
+
+    def perform_create(self, serializer):
+        """
+        Associa a movimentação ao usuário que está fazendo a requisição.
+        """
+        serializer.save(user=self.request.user)
+        
+
+class LocationList(generics.ListAPIView):
+    """
+    View para listar todas as localizações cadastradas.
+    """
+    queryset = Location.objects.all()
+    serializer_class = LocationSerializer
+    permission_classes = [IsAuthenticated]

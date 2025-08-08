@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import ItemCard from '../components/ItemCard'; // Importe o novo componente
+import ItemCard from '../components/ItemCard';
+import MovementFormModal from '../components/MovementFormModal';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
@@ -8,6 +9,9 @@ function InventoryPage() {
   const [items, setItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -33,7 +37,18 @@ function InventoryPage() {
     fetchItems();
 
     return () => controller.abort();
-  }, []);
+  }, [refreshKey]);
+
+  const handleOpenMovementModal = (item = null) => {
+    setSelectedItem(item);
+    setIsModalOpen(true);
+  };
+
+  const handleMovementSuccess = () => {
+    setIsModalOpen(false);
+    setSelectedItem(null);
+    setRefreshKey(oldKey => oldKey + 1);
+  };
 
   if (isLoading) {
     return <p className="status-message">Carregando itens...</p>;
@@ -47,7 +62,12 @@ function InventoryPage() {
     <div className="inventory-page-content">
       <div className="page-header">
         <h1>Itens do Inventário</h1>
-        <button className="button button-success">+ Adicionar Novo Item</button>
+        <button 
+          className="button button-success" 
+          onClick={() => handleOpenMovementModal()}
+        >
+          + Adicionar Movimentação
+        </button>
       </div>
       <p>Total de itens na base de dados: {items.length}</p>
       <hr />
@@ -56,12 +76,22 @@ function InventoryPage() {
         <p className="status-message">Nenhum item encontrado no inventário.</p>
       ) : (
         <div className="item-list">
-          {/* Aqui usamos o .map() para renderizar nosso novo componente ItemCard */}
           {items.map(item => (
-            <ItemCard key={item.id} item={item} />
+            <ItemCard 
+              key={item.id} 
+              item={item}
+              onAddMovement={() => handleOpenMovementModal(item)}
+            />
           ))}
         </div>
       )}
+
+      <MovementFormModal 
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSuccess={handleMovementSuccess}
+        selectedItem={selectedItem}
+      />
     </div>
   );
 }
