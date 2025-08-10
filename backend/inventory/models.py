@@ -84,12 +84,39 @@ class Item(models.Model):
 # --- MODELOS DE ESTOQUE E LOCALIZAÇÃO ---
 
 class Location(models.Model):
-    name = models.CharField(max_length=100)
-    warehouse = models.CharField(max_length=100, help_text="Nome do armazém ou área principal")
-    shelf = models.CharField(max_length=50, blank=True, help_text="Ex: Corredor A, Prateleira 3")
+    class LocationType(models.TextChoices):
+        RECEIVING = 'RECEIVING', 'Área de Recebimento'
+        STORAGE = 'STORAGE', 'Armazenamento Geral'
+        PICKING = 'PICKING', 'Área de Separação (Picking)'
+        DISPATCH = 'DISPATCH', 'Área de Expedição'
+        STOREFRONT = 'STOREFRONT', 'Frente de Loja'
+
+    # ✅ SUA SUGESTÃO: Código único para a locação
+    location_code = models.CharField(
+        max_length=50, 
+        unique=True, 
+        help_text="Código único para a locação (ex: A01-P03-B02)"
+    )
+    
+    name = models.CharField(max_length=100, help_text="Nome descritivo da locação (ex: Prateleira de Parafusos)")
+    
+    # ✅ MELHORIA: Adiciona tipo para análise e regras de negócio
+    location_type = models.CharField(
+        max_length=20, 
+        choices=LocationType.choices, 
+        default=LocationType.STORAGE
+    )
+    
+    warehouse = models.CharField(max_length=100, help_text="Nome do armazém ou galpão")
+    
+    # ✅ MELHORIA: Permite "desativar" uma locação sem deletá-la
+    is_active = models.BooleanField(
+        default=True,
+        help_text="A locação está ativa e pode ser usada?"
+    )
 
     def __str__(self):
-        return f"{self.warehouse} - {self.name}"
+        return f"{self.name} ({self.location_code})"
 
 class StockItem(models.Model):
     item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name='stock_items')
@@ -103,41 +130,56 @@ class StockItem(models.Model):
     def __str__(self):
         return f"{self.item.name} @ {self.location.name} (Qty: {self.quantity})"
     
-class StockMovement(models.Model):
-    class MovementType(models.TextChoices):
-        ENTRY = 'ENTRY', 'Entrada (Compra)'
-        EXIT = 'EXIT', 'Saída (Venda)'
-        INTERNAL = 'INTERNAL', 'Uso Interno'
-        ADJUSTMENT = 'ADJUSTMENT', 'Ajuste de Inventário'
 
-    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name='movements')
-    location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name='location_movements')
-    quantity_change = models.IntegerField()
-    movement_type = models.CharField(max_length=10, choices=MovementType.choices)
-    movement_date = models.DateTimeField(auto_now_add=True)
-    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
-    notes = models.TextField(blank=True, help_text="Mensagem personalizada, motivo do ajuste, etc.")
-    attachment = models.FileField(upload_to='movement_docs/', blank=True, null=True, help_text="Anexo de documento (Ex: Nota Fiscal, Requisição)")
+class MovementType(models.Model):
+    class FactorChoices(models.IntegerChoices):
+        ADD = 1, 'Adicionar ao Estoque'
+        SUBTRACT = -1, 'Subtrair do Estoque'
 
-    def clean(self):
-        if self.quantity_change == 0:
-            raise ValidationError("A quantidade da movimentação não pode ser zero.")
-        if self.movement_type == self.MovementType.EXIT and self.quantity_change > 0:
-            raise ValidationError("Movimentações de SAÍDA devem ter quantidade negativa.")
-        if self.movement_type == self.MovementType.ENTRY and self.quantity_change < 0:
-            raise ValidationError("Movimentações de ENTRADA devem ter quantidade positiva.")
-
-    def save(self, *args, **kwargs):
-        self.full_clean() # Executa a validação do método clean
-        super().save(*args, **kwargs)
-        
-        stock_item, created = StockItem.objects.get_or_create(item=self.item, location=self.location)
-        
-        # O método mais seguro para recalcular é somar todas as movimentações
-        total_quantity = StockMovement.objects.filter(item=self.item, location=self.location).aggregate(total=Sum('quantity_change'))['total']
-        stock_item.quantity = total_quantity if total_quantity is not None else 0
-        stock_item.save()
+    name = models.CharField(max_length=100, unique=True)
+    factor = models.IntegerField(choices=FactorChoices.choices, help_text="Define se a operação é de entrada ou saída.")
+    units_per_package = models.PositiveIntegerField(null=True, blank=True, help_text="Para operações com pacotes/caixas, define o fator multiplicador.")
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True, help_text="Tipos inativos não aparecerão em novas movimentações.")
 
     def __str__(self):
-        direction = "+" if self.quantity_change > 0 else ""
-        return f"{self.item.name}: {direction}{self.quantity_change} em {self.movement_date.strftime('%d/%m/%Y')}"
+        return self.name
+
+class StockMovement(models.Model):
+    # Relacionamentos
+    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name='movements')
+    location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name='location_movements')
+    movement_type = models.ForeignKey(MovementType, on_delete=models.PROTECT)
+    
+    # A quantidade é sempre um número positivo entrado pelo usuário
+    quantity = models.PositiveIntegerField()
+    
+    # Auditoria
+    movement_date = models.DateTimeField(auto_now_add=True)
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    
+    # Detalhes
+    notes = models.TextField(blank=True)
+    attachment = models.FileField(upload_to='movement_docs/', blank=True, null=True)
+
+    def __str__(self):
+        op_signal = '+' if self.movement_type.factor == 1 else '-'
+        final_qty = self.quantity * (self.movement_type.units_per_package or 1)
+        return f"{self.item.name}: {op_signal}{final_qty} em {self.movement_date.strftime('%d/%m/%Y')}"
+
+    def save(self, *args, **kwargs):
+        # Primeiro, calculamos o valor real da movimentação
+        effective_quantity = self.quantity * (self.movement_type.units_per_package or 1) * self.movement_type.factor
+        
+        # Encontra ou cria a entrada de estoque
+        stock_item, created = StockItem.objects.get_or_create(
+            item=self.item,
+            location=self.location
+        )
+        
+        # ATUALIZAÇÃO INCREMENTAL: Apenas adicionamos o novo valor ao saldo existente
+        stock_item.quantity += effective_quantity
+        stock_item.save()
+        
+        # Agora salvamos a própria movimentação
+        super().save(*args, **kwargs)
