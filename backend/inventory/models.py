@@ -1,6 +1,6 @@
 # backend/inventory/models.py
 
-from django.db import models
+from django.db import models, transaction
 from django.contrib.auth.models import User
 from django.db.models import Sum
 from django.core.exceptions import ValidationError
@@ -121,7 +121,7 @@ class Location(models.Model):
 class StockItem(models.Model):
     item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name='stock_items')
     location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name='stock_locations')
-    quantity = models.PositiveIntegerField(default=0)
+    quantity = models.IntegerField(default=0)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -168,18 +168,25 @@ class StockMovement(models.Model):
         return f"{self.item.name}: {op_signal}{final_qty} em {self.movement_date.strftime('%d/%m/%Y')}"
 
     def save(self, *args, **kwargs):
-        # Primeiro, calculamos o valor real da movimentação
-        effective_quantity = self.quantity * (self.movement_type.units_per_package or 1) * self.movement_type.factor
-        
-        # Encontra ou cria a entrada de estoque
-        stock_item, created = StockItem.objects.get_or_create(
-            item=self.item,
-            location=self.location
-        )
-        
-        # ATUALIZAÇÃO INCREMENTAL: Apenas adicionamos o novo valor ao saldo existente
-        stock_item.quantity += effective_quantity
-        stock_item.save()
-        
-        # Agora salvamos a própria movimentação
-        super().save(*args, **kwargs)
+       # Usamos uma transação para garantir que ambas as operações (salvar e atualizar)
+       # aconteçam com sucesso, ou nenhuma delas acontece.
+       with transaction.atomic():
+           # Encontra ou cria a entrada de estoque correspondente e a "trava" para atualização
+           stock_item, created = StockItem.objects.select_for_update().get_or_create(
+               item=self.item,
+               location=self.location
+           )
+           
+           # Salva a movimentação primeiro para que ela tenha um ID
+           # Isso é importante caso a lógica precise do `self.pk`
+           if self.pk is None: # Só executa a lógica de estoque na criação
+               super().save(*args, **kwargs)
+    
+               # Calcula o valor efetivo a ser alterado no estoque
+               effective_change = self.quantity * (self.movement_type.units_per_package or 1) * self.movement_type.factor
+               
+               # Aplica a mudança de forma incremental
+               stock_item.quantity += effective_change
+               stock_item.save()
+           else: # Se for apenas uma edição na movimentação (ex: corrigir nota), não altera o estoque
+               super().save(*args, **kwargs)

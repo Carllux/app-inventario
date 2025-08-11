@@ -1,7 +1,7 @@
 # backend/inventory/serializers.py
 
 from rest_framework import serializers
-from .models import Item, Category, Supplier, Location, StockItem, StockMovement
+from .models import Item, Category, Supplier, Location, StockItem, StockMovement, MovementType
 
 # --- Serializadores de Suporte (para exibição em outros modelos) ---
 
@@ -18,8 +18,13 @@ class SupplierSerializer(serializers.ModelSerializer):
 class LocationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Location
-        fields = ['id', 'name', 'warehouse', 'shelf']
+        fields = ['id', 'name', 'warehouse']
 
+class MovementTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MovementType
+        # Incluímos todos os campos, pois o frontend usará a lógica do 'factor' e 'units_per_package'
+        fields = ['id', 'name', 'factor', 'units_per_package', 'description']
 
 # --- Serializador Principal de Itens (para listagem e detalhes) ---
 
@@ -56,11 +61,13 @@ class StockItemSerializer(serializers.ModelSerializer):
 # --- Serializador para CRIAR Novas Movimentações ---
 
 class StockMovementSerializer(serializers.ModelSerializer):
-    # O usuário será definido na view, então o marcamos como read_only aqui
     user = serializers.StringRelatedField(read_only=True)
 
     class Meta:
         model = StockMovement
-        # Excluímos o anexo do JSON principal, ele será tratado separadamente
-        exclude = ['attachment']
+        # Usamos 'fields' para sermos explícitos sobre o que o frontend pode enviar
+        fields = [
+            'id', 'item', 'location', 'movement_type', 'quantity', 
+            'notes', 'user', 'movement_date'
+        ]
         read_only_fields = ['user', 'movement_date']

@@ -17,3 +17,26 @@ export const createMovement = async (movementData) => {
     throw new Error(error.response?.data?.detail || 'Não foi possível registrar a movimentação.');
   }
 };
+
+/**
+ * Busca a lista de Tipos de Movimentação (TPOs).
+ * Se um itemId for fornecido, a API filtrará os TPOs com base no estoque do item.
+ * @param {number|null} itemId - O ID opcional do item para filtrar os TPOs.
+ * @returns {Promise<Array>} A lista de TPOs.
+ */
+export const fetchMovementTypes = async (itemId = null) => {
+  try {
+    let url = `${API_URL}/api/movement-types/`;
+
+    // Adiciona o parâmetro de filtro na URL se um itemId for passado
+    if (itemId) {
+      url += `?item_id=${itemId}`;
+    }
+
+    const response = await axios.get(url);
+    return response.data.results || response.data; // Suporta paginação se houver
+  } catch (error) {
+    console.error("Erro ao buscar tipos de movimentação:", error.response?.data);
+    throw new Error(error.response?.data?.detail || 'Não foi possível carregar os tipos de movimentação.');
+  }
+};

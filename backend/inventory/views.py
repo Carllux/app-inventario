@@ -5,7 +5,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.throttling import UserRateThrottle
 from drf_yasg.utils import swagger_auto_schema
-from rest_framework.permissions import IsAuthenticated  # Adicionado
+from rest_framework.permissions import IsAuthenticated, AllowAny   # Adicionado
 from rest_framework.exceptions import PermissionDenied  # Adicionado
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.response import Response
@@ -13,9 +13,8 @@ from rest_framework.authtoken.models import Token
 from rest_framework import status
 from .models import Item
 from .serializers import ItemSerializer
-from rest_framework.permissions import IsAuthenticated, AllowAny 
-from .models import Location
-from .serializers import LocationSerializer
+from .models import Location, MovementType
+from .serializers import LocationSerializer, MovementTypeSerializer
 
 
 # Importe os novos modelos e serializadores necessários
@@ -51,6 +50,34 @@ class StandardResultsSetPagination(PageNumberPagination):
     page_size = 10
     page_size_query_param = 'page_size'
     max_page_size = 100
+
+class MovementTypeList(generics.ListAPIView):
+    """
+    View para listar Tipos de Movimentação.
+    Se o parâmetro 'item_id' for passado na URL, e o estoque do item for zero ou menos,
+    retorna apenas os TPOs de ENTRADA.
+    """
+    serializer_class = MovementTypeSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # Pega o ID do item dos parâmetros da URL (ex: ?item_id=1)
+        item_id = self.request.query_params.get('item_id', None)
+        
+        base_queryset = MovementType.objects.filter(is_active=True)
+
+        if item_id:
+            try:
+                item = Item.objects.get(pk=item_id)
+                # Se o estoque for zero ou negativo, filtre apenas TPOs de entrada
+                if item.total_quantity <= 0:
+                    return base_queryset.filter(factor=1).order_by('name')
+            except Item.DoesNotExist:
+                # Se o ID do item for inválido, retorna a lista normal
+                pass
+        
+        # Se não houver item_id ou se o item tiver estoque, retorna todos os TPOs ativos
+        return base_queryset.order_by('name')
 
 class ItemList(generics.ListAPIView):
     """
