@@ -41,7 +41,8 @@ INSTALLED_APPS = [
     'rest_framework.authtoken', # Essencial para autenticação por token
     'django_filters',         # Necessário para filtros avançados
     'drf_yasg',               # Para documentação da API (instalaremos depois)
-
+    'countries',
+    'addresses',
     # Meus Apps
     'inventory',
 ]
