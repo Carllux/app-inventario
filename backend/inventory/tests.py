@@ -62,6 +62,15 @@ class ItemAPITests(APITestCase):
         # Simula o login do usuário da Filial SP
         self.client.force_authenticate(user=self.normal_user_sp)
         
+            # Testa filtro por localização
+        response = self.client.get('/api/items/?location=' + str(self.location_sp.id))
+        self.assertEqual(len(response.data['results']), 1)
+
+        # Testa que não pode acessar localização de outra filial
+        # PARA:
+        response = self.client.get('/api/items/?stock_items__location=' + str(self.location_rj.id))
+        self.assertEqual(len(response.data['results']), 0)
+        
         # Faz a requisição para a API
         response = self.client.get('/api/items/')
         
@@ -191,3 +200,36 @@ class StockMovementAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         # Verificamos que o erro é especificamente sobre o campo 'item'
         self.assertIn('item', response.data)
+        
+    def test_movement_quantity_must_be_positive(self):
+        """Verifica se a API rejeita quantidades negativas ou zero"""
+        self.client.force_authenticate(user=self.admin_user)
+
+        invalid_data = {
+            'item': self.item.pk,
+            'location': self.location.pk,
+            'movement_type': self.entry_type.pk,
+            'quantity': 0  # Valor inválido
+        }
+
+        response = self.client.post('/api/movements/', invalid_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('quantity', response.data)
+
+    def test_outbound_movement_fails_with_insufficient_stock(self):
+        """Verifica se saídas com estoque insuficiente são rejeitadas"""
+        # Cria um tipo de saída (factor negativo)
+        outbound_type = MovementType.objects.create(name='Saída Teste', factor=-1)
+
+        self.client.force_authenticate(user=self.admin_user)
+
+        invalid_data = {
+            'item': self.item.pk,
+            'location': self.location.pk,
+            'movement_type': outbound_type.pk,
+            'quantity': 1000  # Quantidade maior que o estoque
+        }
+
+        response = self.client.post('/api/movements/', invalid_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('non_field_errors', response.data)        

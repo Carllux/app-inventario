@@ -75,8 +75,11 @@ class ItemSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'sku', 'name', 'status', 'category', 'supplier', 'photo', 
             'brand', 'purchase_price', 'sale_price', 'unit_of_measure', 
-            'origin', 'cfop', 'minimum_stock_level', 'total_quantity', 'is_low_stock'
+            'origin', 'cfop', 'minimum_stock_level', 'total_quantity', 'is_low_stock', 'owner'
         ]
+        extra_kwargs = {
+            'owner': {'read_only': True}  # Normalmente definido automaticamente
+        }
 
 class StockItemSerializer(serializers.ModelSerializer):
     location = LocationSerializer(read_only=True)
@@ -92,17 +95,43 @@ class MovementTypeSerializer(serializers.ModelSerializer):
         model = MovementType
         fields = ['id', 'name', 'factor', 'units_per_package']
 
+# Atualize o StockMovementSerializer para incluir validações
+# backend/inventory/serializers.py
+
 class StockMovementSerializer(serializers.ModelSerializer):
-    # Garante que campos de relacionamento sejam apenas IDs na escrita (criação)
-    item = serializers.PrimaryKeyRelatedField(queryset=Item.objects.all())
-    location = serializers.PrimaryKeyRelatedField(queryset=Location.objects.all())
-    movement_type = serializers.PrimaryKeyRelatedField(queryset=MovementType.objects.all())
+    # 'user' e 'total_moved_value' são apenas para leitura (serão gerados pelo backend)
+    user = serializers.StringRelatedField(read_only=True)
+    total_moved_value = serializers.ReadOnlyField() # Garante que é apenas leitura
 
     class Meta:
         model = StockMovement
         fields = [
             'id', 'item', 'location', 'movement_type', 'quantity', 'notes',
-            'user', 'movement_date', 'total_moved_value'
+            'user', 'movement_date', 'unit_price', 'total_moved_value', 'attachment'
         ]
-        # O usuário e a data são definidos pelo backend, portanto, apenas leitura.
-        read_only_fields = ['user', 'movement_date', 'total_moved_value']
+        # 'unit_price' também será definido no backend, então o tornamos read_only
+        read_only_fields = ['user', 'movement_date', 'total_moved_value', 'unit_price']
+
+    def validate(self, data):
+        """Validações customizadas para movimentações"""
+        # 1. Validação de quantidade
+        if data['quantity'] <= 0:
+            raise serializers.ValidationError({"quantity": "A quantidade deve ser maior que zero."})
+        
+        # 2. Validação de estoque para saídas
+        movement_type = data['movement_type']
+        if movement_type.factor < 0:
+            item = data['item']
+            location = data['location']
+            
+            # Calcula a quantidade real da saída, considerando pacotes
+            quantity_to_remove = data['quantity'] * (movement_type.units_per_package or 1)
+
+            try:
+                stock_item = StockItem.objects.get(item=item, location=location)
+                if stock_item.quantity < quantity_to_remove:
+                    raise serializers.ValidationError(f"Estoque insuficiente. Saldo atual: {stock_item.quantity}, Saída solicitada: {quantity_to_remove}")
+            except StockItem.DoesNotExist:
+                raise serializers.ValidationError("Estoque insuficiente. Não há registro de estoque para este item neste local.")
+        
+        return data

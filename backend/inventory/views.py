@@ -98,7 +98,15 @@ class ItemList(generics.ListAPIView):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['sku', 'name', 'brand']
     ordering_fields = ['name', 'sku', 'sale_price', 'total_quantity']
-    filterset_fields = ['category', 'supplier', 'status']
+    filterset_fields = {
+        'brand': ['exact', 'icontains'],
+        'purchase_price': ['gte', 'lte'],
+        'sale_price': ['gte', 'lte'],
+        'status': ['exact'],
+        'category': ['exact'], # Filtrar por ID da categoria é mais performático
+        'supplier': ['exact'],
+        'stock_items__location': ['exact'],
+    }
     ordering = ['sku']
 
     def get_queryset(self):
