@@ -1,158 +1,137 @@
-from django.utils.decorators import method_decorator
-from django.views.decorators.cache import cache_page
-from rest_framework import generics, filters
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework.pagination import PageNumberPagination
-from rest_framework.throttling import UserRateThrottle
-from drf_yasg.utils import swagger_auto_schema
-from rest_framework.permissions import IsAuthenticated, AllowAny   # Adicionado
-from rest_framework.exceptions import PermissionDenied  # Adicionado
-from rest_framework.authtoken.views import ObtainAuthToken
+# backend/inventory/views.py
+
+from rest_framework import generics, filters, status
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
+from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
-from rest_framework import status
-from .models import Item
-from .serializers import ItemSerializer
-from .models import Location, MovementType
-from .serializers import LocationSerializer, MovementTypeSerializer
+from django_filters.rest_framework import DjangoFilterBackend
+from django.contrib.auth.models import User
 
+# Importando TODOS os modelos e serializadores que vamos usar
+from .models import (
+    Branch, Sector, Location, UserProfile,
+    Item, MovementType, StockMovement
+)
+from .serializers import (
+    UserSerializer, BranchSerializer, SectorSerializer, LocationSerializer,
+    ItemSerializer, MovementTypeSerializer, StockMovementSerializer
+)
 
-# Importe os novos modelos e serializadores necessários
-from .models import StockMovement
-from .serializers import StockMovementSerializer
-
+# --- View de Autenticação Aprimorada ---
 
 class CustomAuthToken(ObtainAuthToken):
     """
-    View personalizada para login que retorna o token e informações do usuário
+    View de login que retorna o token e os dados completos do usuário,
+    incluindo seu perfil com filiais e setores.
     """
+    # Permite acesso sem autenticação para que o usuário possa logar
+    permission_classes = [AllowAny] 
+    
     def post(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=request.data,
-                                       context={'request': request})
-        if not serializer.is_valid():
-            return Response(
-                {'error': 'Credenciais inválidas'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
+        serializer = self.serializer_class(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
         user = serializer.validated_data['user']
         token, created = Token.objects.get_or_create(user=user)
         
+        # ✅ MUDANÇA PRINCIPAL: Usando o UserSerializer para retornar dados completos
+        user_data = UserSerializer(user).data
+        
         return Response({
             'token': token.key,
-            'user_id': user.pk,
-            'username': user.username,
-            'email': user.email,
-            'is_staff': user.is_staff
+            'user': user_data
         })
 
-class StandardResultsSetPagination(PageNumberPagination):
-    page_size = 10
-    page_size_query_param = 'page_size'
-    max_page_size = 100
+# --- Views de Listagem para Suporte ao Frontend ---
+
+class BranchList(generics.ListAPIView):
+    """Endpoint para listar todas as filiais ativas."""
+    queryset = Branch.objects.filter(is_active=True).order_by('name')
+    serializer_class = BranchSerializer
+    permission_classes = [IsAuthenticated]
+
+class SectorList(generics.ListAPIView):
+    """Endpoint para listar setores, opcionalmente filtrados por filial."""
+    serializer_class = SectorSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = Sector.objects.filter(is_active=True)
+        branch_id = self.request.query_params.get('branch_id', None)
+        if branch_id is not None:
+            queryset = queryset.filter(branch_id=branch_id)
+        return queryset.order_by('name')
+
+class LocationList(generics.ListAPIView):
+    """Endpoint para listar todas as locações ativas."""
+    # ✅ MELHORIA: Adicionada ordenação para evitar warnings de paginação
+    queryset = Location.objects.filter(is_active=True).order_by('name')
+    serializer_class = LocationSerializer
+    permission_classes = [IsAuthenticated]
 
 class MovementTypeList(generics.ListAPIView):
-    """
-    View para listar Tipos de Movimentação.
-    Se o parâmetro 'item_id' for passado na URL, e o estoque do item for zero ou menos,
-    retorna apenas os TPOs de ENTRADA.
-    """
+    """View inteligente para listar TPOs, filtrando por estoque do item se necessário."""
     serializer_class = MovementTypeSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # Pega o ID do item dos parâmetros da URL (ex: ?item_id=1)
         item_id = self.request.query_params.get('item_id', None)
-        
         base_queryset = MovementType.objects.filter(is_active=True)
-
         if item_id:
             try:
                 item = Item.objects.get(pk=item_id)
-                # Se o estoque for zero ou negativo, filtre apenas TPOs de entrada
                 if item.total_quantity <= 0:
                     return base_queryset.filter(factor=1).order_by('name')
             except Item.DoesNotExist:
-                # Se o ID do item for inválido, retorna a lista normal
                 pass
-        
-        # Se não houver item_id ou se o item tiver estoque, retorna todos os TPOs ativos
         return base_queryset.order_by('name')
+
+
+# --- Views Principais da Aplicação ---
 
 class ItemList(generics.ListAPIView):
     """
-    View para listar todos os itens do inventário com diversas opções de filtro.
+    View principal para listar itens do catálogo. A lógica de permissão é aplicada aqui.
     """
     serializer_class = ItemSerializer
-    pagination_class = StandardResultsSetPagination
+    permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    throttle_classes = [UserRateThrottle]
-    permission_classes = [IsAuthenticated]  # Requer autenticação
-    
-    filterset_fields = {
-        'brand': ['exact', 'icontains'],
-        # 'quantity': ['gte', 'lte', 'exact'], # <-- REMOVA OU COMENTE ESTA LINHA
-        'purchase_price': ['gte', 'lte', 'exact'],
-        'sale_price': ['gte', 'lte'], # Podemos adicionar o preço de venda também
-        'status': ['exact'], # E o status
-        'category__name': ['exact', 'icontains'], # Exemplo de filtro através de relacionamento
-    }
-    
-    search_fields = ['name', 'brand', 'short_description', 'long_description']
-    ordering_fields = ['name', 'quantity', 'purchase_price', 'created_at']
-    ordering = ['-created_at']  # Ordem padrão: mais recentes primeiro
-
-    @method_decorator(cache_page(60*15))  # Cache de 15 minutos
-    @swagger_auto_schema(
-        operation_description="Retorna uma lista paginada de itens do inventário com opções de filtro",
-        responses={
-            200: ItemSerializer(many=True),
-            401: "Não autenticado",
-            403: "Permissão negada"
-        }
-    )
-    def get(self, request, *args, **kwargs):
-        return super().get(request, *args, **kwargs)
+    search_fields = ['sku', 'name', 'brand']
+    ordering_fields = ['name', 'sku', 'sale_price', 'total_quantity']
+    filterset_fields = ['category', 'supplier', 'status']
+    ordering = ['sku']
 
     def get_queryset(self):
         """
-        Filtra os itens pelo usuário logado por padrão e aplica filtros adicionais
+        ✅ LÓGICA DE PERMISSÃO ATUALIZADA:
+        - Administradores (staff/superuser) veem todos os itens.
+        - Usuários normais veem apenas os itens das filiais associadas ao seu perfil.
         """
-        # Remove o filtro por owner dos filterset_fields pois vamos tratar manualmente
-        queryset = Item.objects.filter(owner=self.request.user)
-        
-        # Filtro adicional para mostrar todos os itens (apropriado para admins)
-        show_all = self.request.query_params.get('show_all', '').lower() == 'true'
-        
-        if show_all:
-            if not self.request.user.is_staff:
-                raise PermissionDenied("Você não tem permissão para ver todos os itens")
-            queryset = Item.objects.all()
+        user = self.request.user
+
+        if user.is_staff or user.is_superuser:
+            return Item.objects.all().prefetch_related('stock_items__location__branch')
+
+        try:
+            user_branches = user.profile.branches.all()
+            if not user_branches:
+                return Item.objects.none() # Retorna uma lista vazia se não tiver filial
             
-        return queryset
-    
-# ADICIONE A NOVA VIEW ABAIXO
+            # Filtra itens que têm estoque em locais que pertencem às filiais do usuário
+            return Item.objects.filter(
+                stock_items__location__branch__in=user_branches
+            ).distinct().prefetch_related('stock_items__location__branch')
+        
+        except UserProfile.DoesNotExist:
+            return Item.objects.none() # Retorna uma lista vazia se não tiver perfil
+
+
 class StockMovementCreate(generics.CreateAPIView):
-    """
-    Endpoint para criar uma nova movimentação de estoque.
-    A lógica no método save() do modelo StockMovement cuidará de
-    atualizar a quantidade no modelo StockItem.
-    """
+    """Endpoint para registrar uma nova movimentação de estoque."""
     queryset = StockMovement.objects.all()
     serializer_class = StockMovementSerializer
-    permission_classes = [IsAuthenticated] # Apenas usuários logados podem criar movimentações
+    permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        """
-        Associa a movimentação ao usuário que está fazendo a requisição.
-        """
+        # Associa a movimentação ao usuário logado
         serializer.save(user=self.request.user)
-        
-
-class LocationList(generics.ListAPIView):
-    """
-    View para listar todas as localizações cadastradas.
-    """
-    queryset = Location.objects.all()
-    serializer_class = LocationSerializer
-    permission_classes = [IsAuthenticated]

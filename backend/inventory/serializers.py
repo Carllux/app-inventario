@@ -2,6 +2,7 @@
 
 from rest_framework import serializers
 from django.contrib.auth.models import User
+from django_countries.serializer_fields import CountryField
 from .models import (
     Branch, Sector, UserProfile,
     Supplier, Category, Item, Location, 
@@ -46,6 +47,8 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = ['id', 'name']
 
 class SupplierSerializer(serializers.ModelSerializer):
+    country = CountryField(name_only=True) # ✅ GARANTA QUE ESTA LINHA EXISTA
+
     class Meta:
         model = Supplier
         fields = ['id', 'name']
@@ -63,6 +66,8 @@ class ItemSerializer(serializers.ModelSerializer):
     supplier = SupplierSerializer(read_only=True)
     total_quantity = serializers.ReadOnlyField()
     is_low_stock = serializers.ReadOnlyField()
+    origin = CountryField(name_only=True, read_only=True) # read_only porque não é preenchido na criação principal
+
 
     class Meta:
         model = Item
