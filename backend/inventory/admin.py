@@ -1,5 +1,4 @@
 # backend/inventory/admin.py
-from addresses.models import City
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
@@ -11,12 +10,6 @@ from .models import (
     StockItem, StockMovement, MovementType
 )
 
-
-@admin.register(City)
-class CityAdmin(admin.ModelAdmin):
-    """Admin para o modelo City da biblioteca django-brazilian-addresses."""
-    list_display = ('name', 'state')
-    search_fields = ('name',)
 
 # --- INLINES ---
 
@@ -78,7 +71,6 @@ class SupplierAdmin(admin.ModelAdmin):
     list_display = ('name', 'country', 'city', 'is_active')
     list_filter = ('country', 'is_active', 'tax_regime')
     search_fields = ('name', 'cnpj', 'tax_id')
-    autocomplete_fields = ['city'] # Habilita a busca inteligente de cidades
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):

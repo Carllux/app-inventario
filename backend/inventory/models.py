@@ -6,7 +6,6 @@ from django.db.models import Sum
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django_countries.fields import CountryField
-from addresses.models import City
 
 # --- 1. MODELOS DE ORGANIZAÇÃO, HIERARQUIA E PERMISSÃO ---
 
@@ -87,7 +86,12 @@ class Supplier(models.Model):
     cnpj = models.CharField(max_length=18, blank=True, verbose_name="CNPJ (se brasileiro)")
     tax_id = models.CharField(max_length=50, blank=True, verbose_name="ID Fiscal (se estrangeiro)")
     is_active = models.BooleanField(default=True, verbose_name="Ativo?")
-    city = models.ForeignKey(City, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Cidade")
+    postal_code = models.CharField(max_length=10, blank=True, verbose_name="CEP")
+    address_line_1 = models.CharField(max_length=255, blank=True, verbose_name="Endereço (Rua, Av.)")
+    address_line_2 = models.CharField(max_length=100, blank=True, verbose_name="Número e Complemento")
+    neighborhood = models.CharField(max_length=100, blank=True, verbose_name="Bairro")
+    city = models.CharField(max_length=100, blank=True, verbose_name="Cidade")
+    state = models.CharField(max_length=50, blank=True, verbose_name="Estado/Província")
     contact_person = models.CharField(max_length=100, blank=True, verbose_name="Pessoa de Contato")
     phone_number = models.CharField(max_length=20, blank=True, verbose_name="Telefone de Contato")
     email = models.EmailField(blank=True, verbose_name="E-mail de Contato")

@@ -42,7 +42,6 @@ INSTALLED_APPS = [
     'django_filters',         # Necessário para filtros avançados
     'drf_yasg',               # Para documentação da API (instalaremos depois)
     'django_countries',
-    'addresses',
     # Meus Apps
     'inventory',
 ]
