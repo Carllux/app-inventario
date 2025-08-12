@@ -1,12 +1,13 @@
+// frontend/src/components/Navbar.jsx
 import React from 'react';
-import { Link } from 'react-router-dom'; // Usaremos para navegação no futuro
+import { Link } from 'react-router-dom';
 
-function Navbar({ onLogout }) {
+// O Navbar agora recebe o objeto 'user' e a função 'onLogout'
+function Navbar({ user, onLogout }) {
   return (
     <nav className="navbar">
       <div className="navbar-brand">
-        {/* Link para a página inicial */}
-        <Link to="/" className="navbar-item">
+        <Link to="/inventory" className="navbar-item">
           <strong>App de Inventário</strong>
         </Link>
       </div>
@@ -14,9 +15,12 @@ function Navbar({ onLogout }) {
       <div className="navbar-menu">
         <div className="navbar-end">
           <div className="navbar-item">
+            {/* Mostra o nome do usuário se ele existir */}
+            {user && <span className="navbar-user">Olá, {user.username}</span>}
+          </div>
+          <div className="navbar-item">
             <div className="buttons">
-              {/* O botão de Sair agora vive aqui */}
-              <button onClick={onLogout} className="button is-light">
+              <button onClick={onLogout} className="button button-light">
                 Sair
               </button>
             </div>

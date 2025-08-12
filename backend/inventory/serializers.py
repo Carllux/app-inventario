@@ -51,7 +51,7 @@ class SupplierSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Supplier
-        fields = ['id', 'name']
+        fields = ['id', 'name', 'country', 'is_active']
 
 class LocationSerializer(serializers.ModelSerializer):
     # Exibe o nome da filial em vez de apenas o ID

@@ -366,3 +366,10 @@ hr {
   font-size: 0.8rem;
   color: var(--color-text-muted);
 }
+
+/* Adicione no final da seção do Navbar */
+.navbar-user {
+  margin-right: 1.5rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
