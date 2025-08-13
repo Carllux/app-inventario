@@ -1,0 +1,34 @@
+/* frontend/src/pages/LoginPage.module.css */
+
+.pageContainer {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: var(--space-md);
+}
+
+.banner {
+  /* Espaço para seu logo ou banner */
+  height: 100px;
+  margin-bottom: var(--space-xl);
+}
+
+.loginCard {
+  /* Usamos a classe .card global como base, então aqui só adicionamos o que é específico */
+  padding: var(--space-xl) var(--space-lg);
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+}
+
+.loginCard h2 {
+  margin-bottom: var(--space-lg);
+}
+
+.loginError {
+  color: var(--color-danger);
+  margin-bottom: var(--space-md);
+  font-size: var(--text-sm);
+}

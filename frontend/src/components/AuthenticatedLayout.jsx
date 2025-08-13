@@ -1,33 +1,43 @@
-// frontend/src/components/AuthenticatedLayout.jsx
-
-import React from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import React, { useCallback } from 'react';
+import { Outlet, useNavigate, Navigate } from 'react-router-dom';
 import Navbar from './Navbar';
-// 1. Importamos o nosso hook 'useAuth'
+import Sidebar from './Sidebar';
 import { useAuth } from '../context/AuthContext';
+import FullScreenLoader from './FullScreenLoader'; // Usando nosso loader aprimorado
+import styles from './AuthenticatedLayout.module.css'; // 1. Importe os estilos do módulo
 
 function AuthenticatedLayout() {
   const navigate = useNavigate();
-  // 2. Usamos o hook para pegar o 'user' e a função 'logout' do contexto
-  const { user, logout } = useAuth();
+  const { user, logout, loading } = useAuth();
 
-  const handleLogout = () => {
-    // 3. A função de logout do contexto já limpa tudo (localStorage, estado, etc.)
+  const handleLogout = useCallback(() => {
     logout();
-    // A navegação continua sendo responsabilidade do componente
     navigate('/login');
-  };
+  }, [logout, navigate]);
+
+  // A lógica de loading agora pode viver aqui, protegendo todo o layout
+  if (loading) {
+    return <FullScreenLoader />;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
   return (
-    <div>
-      {/* 4. Passamos o objeto 'user' para o Navbar */}
-      <Navbar user={user} onLogout={handleLogout} />
+    // 2. Aplique as classes do módulo
+    <div className={styles.layout}>
+      <Sidebar />
       
-      <main className="main-content">
-        <Outlet />
-      </main>
+      <div className={styles.contentWrapper}>
+        <Navbar user={user} onLogout={handleLogout} />
+        
+        <main className={styles.mainContent} aria-live="polite">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }
 
-export default AuthenticatedLayout;
+export default React.memo(AuthenticatedLayout);

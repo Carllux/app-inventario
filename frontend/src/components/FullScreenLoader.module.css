@@ -1,0 +1,22 @@
+/* frontend/src/components/FullScreenLoader.module.css */
+
+.loaderContainer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column; /* Empilha o spinner e o texto */
+  justify-content: center;
+  align-items: center;
+  background-color: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(4px); /* Efeito de vidro fosco no fundo */
+  z-index: var(--z-index-modal); /* Garante que fique acima de tudo */
+  gap: var(--space-md);
+}
+
+.loadingText {
+  font-weight: 500;
+  color: var(--color-text-muted);
+}

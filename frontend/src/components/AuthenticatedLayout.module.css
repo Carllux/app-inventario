@@ -1,0 +1,18 @@
+/* frontend/src/components/AuthenticatedLayout.module.css */
+
+.layout {
+  display: flex;
+}
+
+.contentWrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 100vh; /* Garante que o layout ocupe a altura toda */
+}
+
+.mainContent {
+  flex-grow: 1; /* Faz o conteúdo principal ocupar o espaço vertical restante */
+  padding: var(--space-4);
+  overflow-y: auto; /* Permite rolagem apenas nesta área */
+}

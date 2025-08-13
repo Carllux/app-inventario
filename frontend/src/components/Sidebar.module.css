@@ -1,0 +1,119 @@
+/* --- Estilos do Layout Principal --- */
+.appLayout {
+  display: flex;
+}
+
+/* --- Estilos do Componente Sidebar --- */
+.sidebar {
+  width: 250px;
+  height: 100vh;
+  background-color: var(--color-sidebar-bg, #2c3e50); /* Cor escura para o menu */
+  color: var(--color-sidebar-text, #ecf0f1);
+  transition: width var(--transition);
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.collapsed {
+  width: 80px;
+}
+
+/* Cabeçalho da Sidebar */
+.header {
+  padding: var(--space-4) var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  white-space: nowrap;
+}
+
+.logo {
+  font-size: var(--text-xl);
+  color: var(--color-primary); /* Usa a cor primária para destaque */
+}
+
+.title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  margin: 0;
+}
+
+/* Botão de Recolher/Expandir */
+.toggle {
+  position: absolute;
+  right: -15px;
+  top: 25px;
+  background-color: var(--color-sidebar-hover, #34495e);
+  border: 2px solid var(--color-white);
+  color: var(--color-white);
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  transition: transform var(--transition);
+}
+
+.toggle:hover {
+  transform: scale(1.1);
+}
+
+/* Navegação */
+.nav {
+  flex-grow: 1; /* Ocupa o espaço restante */
+}
+
+.navList {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-3) 0;
+}
+
+.navLink {
+  display: flex;
+  align-items: center;
+  padding: var(--space-3);
+  margin: var(--space-1) var(--space-3);
+  color: var(--color-sidebar-text);
+  text-decoration: none;
+  transition: background-color var(--transition);
+  border-radius: var(--border-radius);
+  white-space: nowrap;
+}
+
+.navLink:hover {
+  background-color: var(--color-sidebar-hover, #34495e);
+}
+
+.navLink.active {
+  background-color: var(--color-primary);
+  color: var(--color-white);
+  font-weight: 600;
+}
+
+.icon {
+  font-size: var(--text-xl);
+  min-width: 30px; /* Garante alinhamento mesmo quando recolhido */
+  margin-right: var(--space-3);
+  transition: margin-right var(--transition);
+}
+
+.collapsed .icon {
+  margin-right: 0;
+}
+
+.text {
+  opacity: 1;
+  transition: opacity 0.2s;
+}
+
+.collapsed .text {
+  opacity: 0;
+  display: none;
+}

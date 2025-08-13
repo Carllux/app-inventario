@@ -1,0 +1,25 @@
+/* frontend/src/pages/InventoryPage.module.css */
+
+.pageContent {
+  /* Padding agora é controlado pelo layout principal (.main-content) */
+}
+
+.pageHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-md);
+}
+
+.statusMessage {
+  text-align: center;
+  font-size: var(--text-lg);
+  color: var(--color-text-muted);
+  margin-top: var(--space-5);
+}
+
+.itemList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--space-lg);
+}

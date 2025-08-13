@@ -199,7 +199,7 @@ class StockMovementAPITests(APITestCase):
         # Esperamos um erro 400 Bad Request
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         # Verificamos que o erro é especificamente sobre o campo 'item'
-        self.assertIn('item', response.data)
+        self.assertIn('item', str(response.data['detail']))
         
     def test_movement_quantity_must_be_positive(self):
         """Verifica se a API rejeita quantidades negativas ou zero"""
@@ -214,7 +214,7 @@ class StockMovementAPITests(APITestCase):
 
         response = self.client.post('/api/movements/', invalid_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('quantity', response.data)
+        self.assertIn('quantity', str(response.data['detail']))
 
     def test_outbound_movement_fails_with_insufficient_stock(self):
         """Verifica se saídas com estoque insuficiente são rejeitadas"""
@@ -232,4 +232,4 @@ class StockMovementAPITests(APITestCase):
 
         response = self.client.post('/api/movements/', invalid_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('non_field_errors', response.data)        
+        self.assertIn('Estoque insuficiente', str(response.data['detail']))       

@@ -1,15 +1,12 @@
-// frontend/src/pages/LoginPage.jsx
-
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-// 1. Importamos o nosso novo hook 'useAuth'
 import { useAuth } from '../context/AuthContext';
+// 1. Importe os estilos do módulo
+import styles from './LoginPage.module.css';
 
 function LoginPage() { 
   const navigate = useNavigate();
   const location = useLocation();
-  
-  // 2. Usamos o hook para pegar a função 'login' do nosso contexto
   const { login } = useAuth();
 
   const [username, setUsername] = useState('');
@@ -17,7 +14,6 @@ function LoginPage() {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Redireciona o usuário para a página que ele tentou acessar, ou para o inventário
   const from = location.state?.from?.pathname || "/inventory";
 
   const handleSubmit = async (e) => {
@@ -25,9 +21,8 @@ function LoginPage() {
     setError('');
     setIsSubmitting(true);
     try {
-      // 3. Chamamos a função 'login' do contexto
       await login(username, password);
-      navigate(from, { replace: true }); // Navega para a página de destino
+      navigate(from, { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -36,14 +31,21 @@ function LoginPage() {
   };
 
   return (
-    <div className="login-page-container">
-      <div className="login-card card">
+    // 2. Aplique as classes do módulo
+    <div className={styles.pageContainer}>
+      <div className={styles.banner}>
+        {/* Futuro banner aqui */}
+      </div>
+
+      {/* Note que podemos combinar classes globais (.card) com classes do módulo */}
+      <div className={`card ${styles.loginCard}`}>
         <h2>Login</h2>
-        {error && <p className="login-error">{error}</p>}
+        {error && <p className={styles.loginError}>{error}</p>}
         
         <form onSubmit={handleSubmit}>
+          {/* As classes globais .form-group e .button continuam funcionando */}
           <div className="form-group">
-            <label htmlFor="username">Usuário:</label>
+            <label className="form-label" htmlFor="username">Usuário:</label>
             <input 
               id="username"
               type="text" 
@@ -55,7 +57,7 @@ function LoginPage() {
           </div>
           
           <div className="form-group">
-            <label htmlFor="password">Senha:</label>
+            <label className="form-label" htmlFor="password">Senha:</label>
             <input
               id="password"
               type="password"
@@ -66,7 +68,6 @@ function LoginPage() {
             />
           </div>
           
-          {/* Usamos o estado 'isSubmitting' para desabilitar o botão durante o login */}
           <button type="submit" className="button button-primary" disabled={isSubmitting}>
             {isSubmitting ? 'Entrando...' : 'Entrar'}
           </button>

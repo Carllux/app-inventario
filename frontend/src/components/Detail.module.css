@@ -1,0 +1,22 @@
+.detailsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.detail {
+  display: flex;
+  flex-direction: column;
+}
+
+.detail strong {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-bottom: 2px;
+  text-transform: uppercase;
+}
+
+.detail span {
+  font-weight: 500;
+}

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import ItemCard from '../components/ItemCard';
 import MovementFormModal from '../components/MovementFormModal';
+// 1. Importe os estilos do módulo
+import styles from './InventoryPage.module.css'; 
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
@@ -50,17 +52,19 @@ function InventoryPage() {
     setRefreshKey(oldKey => oldKey + 1);
   };
 
+  // 2. Aplique as classes do módulo na lógica de renderização
   if (isLoading) {
-    return <p className="status-message">Carregando itens...</p>;
+    return <p className={styles.statusMessage}>Carregando itens...</p>;
   }
 
   if (error) {
-    return <p className="status-message error">Erro: {error}</p>;
+    return <p className={`${styles.statusMessage} ${styles.error}`}>Erro: {error}</p>;
   }
   
   return (
-    <div className="inventory-page-content">
-      <div className="page-header">
+    // 3. Aplique as classes do módulo no JSX principal
+    <div className={styles.pageContent}>
+      <div className={styles.pageHeader}>
         <h1>Itens do Inventário</h1>
         <button 
           className="button button-success" 
@@ -69,18 +73,18 @@ function InventoryPage() {
           + Adicionar Movimentação
         </button>
       </div>
-      <p>Total de itens na base de dados: {items.length}</p>
+      <p className="text-muted">Total de itens na base de dados: {items.length}</p>
       <hr />
       
       {items.length === 0 ? (
-        <p className="status-message">Nenhum item encontrado no inventário.</p>
+        <p className={styles.statusMessage}>Nenhum item encontrado no inventário.</p>
       ) : (
-        <div className="item-list">
+        <div className={styles.itemList}>
           {items.map(item => (
             <ItemCard 
               key={item.id} 
-              item={item}
-              onAddMovement={() => handleOpenMovementModal(item)}
+              item={item} 
+              onAddMovement={handleOpenMovementModal}
             />
           ))}
         </div>

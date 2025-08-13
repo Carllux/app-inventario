@@ -1,0 +1,78 @@
+
+.card {
+  display: flex;
+  flex-direction: column;
+}
+
+.lowStockWarning {
+  border-left: 5px solid var(--color-danger);
+}
+
+.lowStockAlert {
+  background-color: var(--color-danger);
+  color: var(--color-white);
+  text-align: center;
+  font-weight: bold;
+  font-size: 0.8rem;
+  padding: 0.25rem;
+}
+
+.imageContainer {
+  width: 100%;
+  height: 200px;
+  overflow: hidden;
+  background-color: var(--color-light);
+}
+
+.image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.imagePlaceholder {
+  width: 100%;
+  height: 200px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.content {
+  padding: 1rem;
+  flex-grow: 1;
+}
+
+.category {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+}
+
+.name {
+  margin-bottom: 0.5rem;
+}
+
+.sku {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin-bottom: 1rem;
+  font-family: monospace;
+}
+
+
+.actions {
+  padding: 1rem;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  gap: 10px;
+}
+
+.actions .button {
+  flex-grow: 1;
+  padding: 0.5rem; /* Botões menores dentro do card */
+}

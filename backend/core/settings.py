@@ -163,8 +163,10 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.AnonRateThrottle'
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'user': '1000/day',  # Limite para usuários autenticados
-        'anon': '100/day'    # Limite para usuários anônimos
+       'anon': '100/day',   # Limite padrão para anônimos
+        'user': '1000/day',  # Limite padrão para usuários logados
+        'burst': '60/minute',  # Limite para o escopo 'burst'
+        'sustained': '200/hour',# Limite para o escopo 'sustained'
     },
     # Não é necessário definir filtros globais, é melhor por view.
     # 'DEFAULT_FILTER_BACKENDS': [ ... ],

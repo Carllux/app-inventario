@@ -99,39 +99,45 @@ class MovementTypeSerializer(serializers.ModelSerializer):
 # backend/inventory/serializers.py
 
 class StockMovementSerializer(serializers.ModelSerializer):
-    # 'user' e 'total_moved_value' são apenas para leitura (serão gerados pelo backend)
     user = serializers.StringRelatedField(read_only=True)
-    total_moved_value = serializers.ReadOnlyField() # Garante que é apenas leitura
+    total_moved_value = serializers.ReadOnlyField()
 
     class Meta:
         model = StockMovement
         fields = [
             'id', 'item', 'location', 'movement_type', 'quantity', 'notes',
-            'user', 'movement_date', 'unit_price', 'total_moved_value', 'attachment'
+            'user', 'movement_date', 'unit_price', 'total_moved_value'
         ]
-        # 'unit_price' também será definido no backend, então o tornamos read_only
-        read_only_fields = ['user', 'movement_date', 'total_moved_value', 'unit_price']
+        read_only_fields = ['user', 'movement_date', 'unit_price', 'total_moved_value']
 
     def validate(self, data):
-        """Validações customizadas para movimentações"""
-        # 1. Validação de quantidade
+        # Validações customizadas
         if data['quantity'] <= 0:
-            raise serializers.ValidationError({"quantity": "A quantidade deve ser maior que zero."})
+            raise serializers.ValidationError(
+                {"quantity": "A quantidade deve ser maior que zero."}
+            )
         
-        # 2. Validação de estoque para saídas
         movement_type = data['movement_type']
         if movement_type.factor < 0:
             item = data['item']
             location = data['location']
-            
-            # Calcula a quantidade real da saída, considerando pacotes
             quantity_to_remove = data['quantity'] * (movement_type.units_per_package or 1)
-
-            try:
-                stock_item = StockItem.objects.get(item=item, location=location)
-                if stock_item.quantity < quantity_to_remove:
-                    raise serializers.ValidationError(f"Estoque insuficiente. Saldo atual: {stock_item.quantity}, Saída solicitada: {quantity_to_remove}")
-            except StockItem.DoesNotExist:
-                raise serializers.ValidationError("Estoque insuficiente. Não há registro de estoque para este item neste local.")
-        
+            
+            stock_item = StockItem.objects.filter(item=item, location=location).first()
+            
+            if not stock_item or stock_item.quantity < quantity_to_remove:
+                current_stock = stock_item.quantity if stock_item else 0
+                raise serializers.ValidationError(
+                    f"Estoque insuficiente. Saldo atual: {current_stock}, Saída solicitada: {quantity_to_remove}"
+                )
         return data
+
+    def create(self, validated_data):
+        # A lógica de criação agora vive aqui.
+        validated_data['user'] = self.context['request'].user
+        
+        movement = StockMovement(**validated_data)
+        # O método .save() do modelo será chamado aqui, com toda a sua lógica.
+        movement.save() 
+        
+        return movement
