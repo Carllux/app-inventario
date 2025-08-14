@@ -2,7 +2,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styles from './Navbar.module.css';
-import UserMenu from './UserMenu'; // Componente de menu já separado
+import UserMenu from './UserMenu';
+import ThemeToggle from './ThemeToggle';
 
 function Navbar({ user, onLogout }) {
   return (
@@ -13,7 +14,7 @@ function Navbar({ user, onLogout }) {
       
       <div className={styles.end}>
         {/* Futuros ícones de notificação ou ajuda podem entrar aqui */}
-        
+        <ThemeToggle />
         {user ? (
           <UserMenu user={user} onLogout={onLogout} />
         ) : (

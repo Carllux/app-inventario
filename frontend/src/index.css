@@ -1,6 +1,6 @@
 /* --- 1. Variáveis Globais e Reset --- */
 
-:root {
+:root, body.light-theme {
   /* Cores */
   --color-primary: #007bff;
   --color-primary-dark: #0056b3;
@@ -35,6 +35,23 @@
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
   --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
   --transition: 0.2s ease;
+}
+
+/* TEMA ESCURO */
+body.dark-theme {
+  --color-primary: #3a9cff;
+  --color-primary-dark: #1a7cdf;
+  --color-success: #34c759;
+  --color-success-dark: #24a749;
+  --color-danger: #ff453a;
+  --color-danger-dark: #e0352a;
+  --color-light: #2c2c2e;
+  --color-light-hover: #3a3a3c;
+  --color-white: #2c2c2e; /* No dark mode, "white" é um fundo escuro */
+  --color-text: #f8f9fa;
+  --color-text-muted: #a1a1a3;
+  --color-border: #444446;
+  --color-background: #1c1c1e;
 }
 
 /* Reset e Base */
@@ -300,34 +317,3 @@ input:disabled, textarea:disabled, select:disabled {
   .mb-2-mobile { margin-bottom: var(--space-sm); }
   /* ... */
 }
-
-/* --- Dark Mode Aprimorado ---
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-primary: #3a9cff;
-    --color-primary-dark: #1a7cdf;
-    --color-success: #34c759;
-    --color-success-dark: #24a749;
-    --color-danger: #ff453a;
-    --color-danger-dark: #e0352a;
-    --color-text: #f8f9fa;
-    --color-text-muted: #a1a1a3;
-    --color-background: #1c1c1e;
-    --color-white: #2c2c2e;
-    --color-border: #444446;
-    --color-light: #2c2c2e;
-    --color-light-hover: #3a3a3c;
-  }
-  
-  /* Ajustes específicos para elementos no dark mode */
-  .card {
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-  }
-  
-  input,
-  textarea,
-  select {
-    background-color: #2c2c2e;
-    color: var(--color-text);
-  }
-} */

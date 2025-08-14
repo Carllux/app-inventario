@@ -76,3 +76,11 @@
   flex-grow: 1;
   padding: 0.5rem; /* Botões menores dentro do card */
 }
+
+.detailsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+  font-size: var(--text-sm);
+  margin-top: var(--space-md);
+}
