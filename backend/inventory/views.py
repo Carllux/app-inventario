@@ -19,7 +19,7 @@ from .models import (
 # Bloco de import unificado para serializadores
 from .serializers import (
     StockItemSerializer, UserSerializer, BranchSerializer, SectorSerializer, LocationSerializer,
-    ItemSerializer, MovementTypeSerializer, StockMovementSerializer
+    ItemSerializer, MovementTypeSerializer, StockMovementSerializer, ItemCreateUpdateSerializer 
 )
 import logging
 logger = logging.getLogger(__name__)
@@ -152,9 +152,7 @@ class MovementTypeList(BaseListView):
 
 # --- VIEWS PRINCIPAIS DA APLICAÇÃO ---
 
-# --- VIEWS PRINCIPAIS DA APLICAÇÃO ---
-
-class ItemList(BaseListView):
+class ItemListCreateView(BaseListView):
     serializer_class = ItemSerializer
     search_fields = ['sku', 'name', 'brand', 'supplier__name']
     ordering_fields = ['name', 'sku', 'sale_price', 'purchase_price', 'total_quantity']
@@ -168,6 +166,16 @@ class ItemList(BaseListView):
         'stock_items__location': ['exact'],
         'stock_items__location__branch': ['exact'],  # Novo filtro por filial
     }
+
+    def get_serializer_class(self):
+        """Usa um serializador diferente para leitura (GET) e escrita (POST)."""
+        if self.request.method == 'POST':
+            return ItemCreateUpdateSerializer
+        return ItemSerializer
+    
+    def perform_create(self, serializer):
+        """Associa o item ao usuário logado no momento da criação."""
+        serializer.save(owner=self.request.user)
 
     def get_queryset(self):
         logger.info(f"ItemList accessed by {self.request.user.username}")
@@ -198,7 +206,9 @@ class ItemList(BaseListView):
                     output_field=models.BooleanField()
                 )
             ).filter(is_low_stock_condition=True)
-        
+    
+
+
         return queryset
 
 class StockMovementCreate(generics.CreateAPIView):

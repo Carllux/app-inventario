@@ -1,20 +1,6 @@
 /* --- 1. Variáveis Globais e Reset --- */
 
-:root, body.light-theme {
-  /* Cores */
-  --color-primary: #007bff;
-  --color-primary-dark: #0056b3;
-  --color-success: #28a745;
-  --color-success-dark: #218838;
-  --color-danger: #dc3545;
-  --color-danger-dark: #c82333;
-  --color-light: #f8f9fa;
-  --color-light-hover: #e9ecef;
-  --color-white: #ffffff;
-  --color-text: #212529;
-  --color-text-muted: #6c757d;
-  --color-border: #dee2e6;
-  --color-background: #f8f9fa;
+:root {
 
   /* Espaçamento */
   --space-xs: 0.25rem;
@@ -35,6 +21,24 @@
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
   --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
   --transition: 0.2s ease;
+}
+
+
+body.light-theme {
+  /* Cores */
+  --color-primary: #007bff;
+  --color-primary-dark: #0056b3;
+  --color-success: #28a745;
+  --color-success-dark: #218838;
+  --color-danger: #dc3545;
+  --color-danger-dark: #c82333;
+  --color-light: #f8f9fa;
+  --color-light-hover: #e9ecef;
+  --color-white: #ffffff;
+  --color-text: #212529;
+  --color-text-muted: #6c757d;
+  --color-border: #dee2e6;
+  --color-background: #f8f9fa;
 }
 
 /* TEMA ESCURO */

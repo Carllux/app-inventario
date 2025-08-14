@@ -141,3 +141,15 @@ class StockMovementSerializer(serializers.ModelSerializer):
         movement.save() 
         
         return movement
+    
+class ItemCreateUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Item
+        # Lista de campos que o frontend poderá ENVIAR
+        fields = [
+            'sku', 'name', 'category', 'supplier', 'status', 'brand',
+            'purchase_price', 'sale_price', 'unit_of_measure',
+            'origin', 'cfop', 'minimum_stock_level',
+        ]
+        # O owner será definido na view, não enviado pelo frontend
+        read_only_fields = ['owner']
