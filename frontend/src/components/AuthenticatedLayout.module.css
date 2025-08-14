@@ -1,5 +1,7 @@
 /* frontend/src/components/AuthenticatedLayout.module.css */
 
+/* frontend/src/components/AuthenticatedLayout.module.css */
+
 .layout {
   display: flex;
 }
@@ -7,12 +9,17 @@
 .contentWrapper {
   display: flex;
   flex-direction: column;
-  width: 100%;
-  min-height: 100vh; /* Garante que o layout ocupe a altura toda */
+
+  /* ✅ CORREÇÃO PRINCIPAL AQUI */
+  flex-grow: 1; /* Faz este container crescer e ocupar o espaço restante */
+  min-height: 100vh;
+
+  /* Garante que o conteúdo não vaze da tela */
+  overflow-x: hidden;
 }
 
 .mainContent {
-  flex-grow: 1; /* Faz o conteúdo principal ocupar o espaço vertical restante */
-  padding: var(--space-4);
-  overflow-y: auto; /* Permite rolagem apenas nesta área */
+  flex-grow: 1;
+  padding: var(--space-xl);
+  overflow-y: auto;
 }

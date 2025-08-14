@@ -31,13 +31,26 @@ function ItemCard({ item, onAddMovement }) {
         <h2 className={styles.name} title={item.name}>{item.name}</h2>
         <p className={styles.sku}>SKU: {item.sku}</p>
         
+        {/* ✅ BLOCO DE DETALHES PREENCHIDO */}
         <div className={styles.detailsGrid}>
-          {/* ... */}
+          <Detail label="Estoque Total" value={`${item.total_quantity} ${item.unit_of_measure || ''}`} />
+          <Detail label="Preço de Venda" value={`R$ ${item.sale_price}`} />
+          <Detail label="Marca" value={item.brand} />
+          <Detail label="Fornecedor" value={item.supplier?.name} />
         </div>
       </div>
       
+      {/* ✅ BLOCO DE AÇÕES PREENCHIDO */}
       <div className={styles.actions}>
-        {/* ... */}
+        <button 
+          className="button button-outline button-success button-sm"
+          onClick={() => onAddMovement(item)}
+        >
+          Movimentar
+        </button>
+        <button className="button button-outline button-primary button-sm">
+          Detalhes
+        </button>
       </div>
     </div>
   );

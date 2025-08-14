@@ -1,3 +1,4 @@
+// frontend\src\components\AuthenticatedLayout.jsx
 import React, { useCallback } from 'react';
 import { Outlet, useNavigate, Navigate } from 'react-router-dom';
 import Navbar from './Navbar';
