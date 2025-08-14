@@ -1,38 +1,36 @@
-/* --- Estilos do Layout Principal --- */
-.appLayout {
-  display: flex;
-}
-
-/* --- Estilos do Componente Sidebar --- */
+/* frontend/src/components/Sidebar.module.css */
 .sidebar {
   width: 250px;
   height: 100vh;
-  background-color: var(--color-sidebar-bg, #2c3e50); /* Cor escura para o menu */
-  color: var(--color-sidebar-text, #ecf0f1);
-  transition: width var(--transition);
-  position: sticky;
-  top: 0;
+  background-color: #1e293b; /* Tom de azul escuro mais moderno */
+  color: #f8fafc;
   display: flex;
   flex-direction: column;
+  position: sticky;
+  top: 0;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .collapsed {
   width: 80px;
 }
 
-/* Cabeçalho da Sidebar */
+/* Cabeçalho */
 .header {
-  padding: var(--space-4) var(--space-3);
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  height: 65px; /* Mesma altura do Navbar */
+  border-bottom: 1px solid #334155;
   white-space: nowrap;
+  overflow: hidden;
 }
 
 .logo {
   font-size: var(--text-xl);
-  color: var(--color-primary); /* Usa a cor primária para destaque */
+  color: var(--color-primary);
+  flex-shrink: 0; /* Impede que o ícone diminua */
 }
 
 .title {
@@ -41,13 +39,13 @@
   margin: 0;
 }
 
-/* Botão de Recolher/Expandir */
+/* Botão de Toggle */
 .toggle {
   position: absolute;
   right: -15px;
-  top: 25px;
-  background-color: var(--color-sidebar-hover, #34495e);
-  border: 2px solid var(--color-white);
+  top: 22px;
+  background-color: #334155;
+  border: 2px solid var(--color-background);
   color: var(--color-white);
   border-radius: 50%;
   width: 30px;
@@ -57,38 +55,41 @@
   align-items: center;
   justify-content: center;
   z-index: 1;
-  transition: transform var(--transition);
+  transition: transform 0.3s ease, background-color 0.3s ease;
 }
 
 .toggle:hover {
   transform: scale(1.1);
+  background-color: var(--color-primary);
 }
 
 /* Navegação */
 .nav {
-  flex-grow: 1; /* Ocupa o espaço restante */
+  flex-grow: 1;
+  padding: var(--space-sm) 0;
 }
 
 .navList {
   list-style: none;
-  padding: 0;
-  margin: var(--space-3) 0;
 }
 
 .navLink {
   display: flex;
   align-items: center;
-  padding: var(--space-3);
-  margin: var(--space-1) var(--space-3);
+  /* Aumentamos o padding esquerdo para criar a margem interna que você queria */
+  padding: var(--space-md) var(--space-lg); 
+  margin: var(--space-xs) var(--space-md);
   color: var(--color-sidebar-text);
   text-decoration: none;
-  transition: background-color var(--transition);
   border-radius: var(--border-radius);
   white-space: nowrap;
+  overflow: hidden;
+  transition: all var(--transition);
 }
 
 .navLink:hover {
-  background-color: var(--color-sidebar-hover, #34495e);
+  background-color: #334155;
+  color: var(--color-white);
 }
 
 .navLink.active {
@@ -98,10 +99,16 @@
 }
 
 .icon {
-  font-size: var(--text-xl);
-  min-width: 30px; /* Garante alinhamento mesmo quando recolhido */
-  margin-right: var(--space-3);
+  font-size: var(--text-lg);
+  margin-right: var(--space-md);
+  min-width: 24px; /* Garante alinhamento */
   transition: margin-right var(--transition);
+}
+
+/* Lógica para centralizar o ícone quando recolhido */
+.collapsed .navLink {
+  justify-content: center;
+  padding: 0;
 }
 
 .collapsed .icon {
@@ -115,5 +122,5 @@
 
 .collapsed .text {
   opacity: 0;
-  display: none;
+  width: 0; /* Ajuda na animação */
 }

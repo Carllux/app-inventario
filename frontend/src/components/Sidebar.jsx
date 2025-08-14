@@ -22,7 +22,7 @@ function Sidebar() {
     <aside className={classNames(styles.sidebar, { [styles.collapsed]: isCollapsed })}>
       
       <div className={styles.header}>
-        <span className={styles.logo}>📦</span>
+        {!isCollapsed &&<span className={styles.logo}>📦</span>}
         {!isCollapsed && <h1 className={styles.title}>Inventário</h1>}
       </div>
 

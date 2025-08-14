@@ -8,18 +8,19 @@ import ThemeToggle from './ThemeToggle';
 function Navbar({ user, onLogout }) {
   return (
     <header className={styles.navbar}>
-      <div className={styles.start}>
-        {/* Espaço reservado para o Filtro Global de Filial ou Busca */}
-      </div>
-      
-      <div className={styles.end}>
-        {/* Futuros ícones de notificação ou ajuda podem entrar aqui */}
-        <ThemeToggle />
-        {user ? (
-          <UserMenu user={user} onLogout={onLogout} />
-        ) : (
-          <Link to="/login" className="button button-primary">Entrar</Link>
-        )}
+      <div className={styles.container}>
+        <div className={styles.start}>
+          {/* Espaço para o Filtro Global de Filial ou Busca */}
+        </div>
+        
+        <div className={styles.end}>
+          <ThemeToggle />
+          {user ? (
+            <UserMenu user={user} onLogout={onLogout} />
+          ) : (
+            <Link to="/login" className="button button-primary">Entrar</Link>
+          )}
+        </div>
       </div>
     </header>
   );

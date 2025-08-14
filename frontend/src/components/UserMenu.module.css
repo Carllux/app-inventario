@@ -10,8 +10,8 @@
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2);
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
   border-radius: var(--border-radius);
   transition: background-color var(--transition);
 }
@@ -26,8 +26,8 @@
 }
 
 .avatar {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background-color: var(--color-primary);
   color: var(--color-white);
@@ -36,6 +36,8 @@
   justify-content: center;
   font-weight: bold;
   font-size: var(--text-sm);
+  border: 2px solid var(--color-white);
+  box-shadow: 0 0 0 2px var(--color-primary);
 }
 
 /* --- Dropdown Styles --- */
@@ -43,7 +45,7 @@
   opacity: 0;
   visibility: hidden;
   position: absolute;
-  top: calc(100% + var(--space-2));
+  top: calc(100% + var(--space-sm));
   right: 0;
   background-color: var(--color-white);
   border-radius: var(--border-radius);
@@ -63,7 +65,7 @@
 }
 
 .header {
-  padding: var(--space-3);
+  padding: var(--space-md);
   border-bottom: 1px solid var(--color-border);
 }
 
@@ -80,7 +82,7 @@
 }
 
 .section {
-  padding: var(--space-2) 0;
+  padding: var(--space-sm) 0;
   border-bottom: 1px solid var(--color-border);
 }
 .section:last-child {
@@ -90,8 +92,8 @@
 .infoItem {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
   font-size: var(--text-sm);
   color: var(--color-text-muted);
 }
@@ -103,8 +105,8 @@
 .actionItem {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
   text-decoration: none;
   color: var(--color-text);
   background: none;
