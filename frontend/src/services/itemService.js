@@ -20,4 +20,37 @@ export const createItem = async (itemData) => {
   }
 };
 
-// Futuramente, podemos adicionar aqui as funções updateItem, deleteItem, etc.
+/**
+ * Busca os dados completos de um único item pelo seu ID.
+ * @param {number} itemId - O ID do item a ser buscado.
+ * @returns {Promise<object>} Os dados do item.
+ */
+export const getItemById = async (itemId) => {
+  try {
+    const response = await axios.get(`${API_URL}/api/items/${itemId}/`);
+    return response.data;
+  } catch (error) {
+    console.error(`Erro ao buscar o item ${itemId}:`, error.response?.data);
+    throw new Error('Não foi possível carregar os detalhes do item.');
+  }
+};
+
+/**
+ * Envia os dados atualizados de um item para a API.
+ * @param {number} itemId - O ID do item a ser atualizado.
+ * @param {object} itemData - Os dados do formulário a serem atualizados.
+ * @returns {Promise<object>} Os dados do item atualizado.
+ */
+export const updateItem = async (itemId, itemData) => {
+  try {
+    // Usamos PATCH para atualizações parciais, é mais eficiente.
+    const response = await axios.patch(`${API_URL}/api/items/${itemId}/`, itemData);
+    return response.data;
+  } catch (error) {
+    console.error(`Erro ao atualizar o item ${itemId}:`, error.response?.data);
+    const errorMessage = Object.values(error.response?.data || {}).flat().join(' ') || 'Não foi possível atualizar o item.';
+    throw new Error(errorMessage);
+  }
+};
+
+// Futuramente, podemos adicionar aqui a deleteItem, etc.

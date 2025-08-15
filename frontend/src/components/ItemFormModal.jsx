@@ -1,65 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import classNames from 'classnames'; // Importe a biblioteca
+import React from 'react';
+import classNames from 'classnames';
+import { useItemForm } from '../hooks/useItemForm'; // Importa o hook
 import styles from './ItemFormModal.module.css';
-import { createItem } from '../services/itemService';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
-
-function ItemFormModal({ isOpen, onClose, onSuccess }) {
-  // --- A LÓGICA INTERNA (useState, useEffect, handlers) CONTINUA A MESMA ---
-  const [formData, setFormData] = useState({
-    sku: '', name: '', category: '', supplier: '', status: 'ACTIVE',
-    brand: '', purchase_price: '0.00', sale_price: '0.00',
-    unit_of_measure: 'Peça', minimum_stock_level: 10,
-  });
-  const [categories, setCategories] = useState([]);
-  const [suppliers, setSuppliers] = useState([]);
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false); // Adicione para feedback no botão
-
-  useEffect(() => {
-    if (isOpen) {
-      const fetchDropdownData = async () => {
-        setIsLoading(true);
-        try {
-          const [catRes, supRes] = await Promise.all([
-            axios.get(`${API_URL}/api/categories/`),
-            axios.get(`${API_URL}/api/suppliers/`),
-          ]);
-          setCategories(catRes.data.results || catRes.data);
-          setSuppliers(supRes.data.results || supRes.data);
-        } catch (err) {
-          setError("Falha ao carregar opções do formulário.");
-        } finally {
-          setIsLoading(false);
-        }
-      };
-      fetchDropdownData();
-    }
-  }, [isOpen]);
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
- const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setIsSubmitting(true);
-    try {
-      // 2. Chama a função do nosso novo serviço
-      await createItem(formData);
-      onSuccess(); // Avisa a página pai que a criação foi um sucesso
-      onClose();   // Fecha o modal
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+function ItemFormModal({ isOpen, onClose, onSuccess, itemId }) {
+  // Chamamos o hook e pegamos tudo o que precisamos
+  const {
+    formData, error, isLoading, isSubmitting, categories, suppliers,
+    isEditMode, handleChange, handleSubmit
+  } = useItemForm(isOpen, itemId, onSuccess);
 
   if (!isOpen) return null;
 
@@ -67,7 +16,7 @@ function ItemFormModal({ isOpen, onClose, onSuccess }) {
     <div className={styles.backdrop} onClick={onClose}>
       <div className={classNames('card', styles.content)} onClick={e => e.stopPropagation()}>
         <div className={styles.header}>
-          <h2>Adicionar Novo Item ao Catálogo</h2>
+          <h2>{isEditMode ? 'Editar Item' : 'Adicionar Novo Item ao Catálogo'}</h2>
           <button onClick={onClose} className={styles.closeButton}>&times;</button>
         </div>
 
@@ -75,7 +24,7 @@ function ItemFormModal({ isOpen, onClose, onSuccess }) {
         {isLoading && <p className="text-center text-muted">Carregando...</p>}
         
         {!isLoading && (
-          <form onSubmit={handleSubmit} className={styles.form}>
+          <form onSubmit={(e) => handleSubmit(e, onSuccess, onClose)} className={styles.form}>
             <fieldset>
               <legend>Informações Principais</legend>
               <div className={styles.formRow}>
@@ -135,7 +84,7 @@ function ItemFormModal({ isOpen, onClose, onSuccess }) {
             <div className={styles.formActions}>
               <button type="button" className="button button-outline" onClick={onClose}>Cancelar</button>
               <button type="submit" className="button button-primary" disabled={isSubmitting}>
-                   {isSubmitting ? 'Salvando...' : 'Salvar Item'}
+                {isSubmitting ? 'Salvando...' : 'Salvar Item'}
               </button>
             </div>
           </form>
