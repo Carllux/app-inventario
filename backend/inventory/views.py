@@ -281,3 +281,27 @@ class SupplierList(BaseListView):
     queryset = Supplier.objects.filter(is_active=True)
     serializer_class = SupplierSerializer
     search_fields = ['name', 'cnpj'] # Permite buscar por nome ou cnpj
+
+class ItemDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    View para ver detalhes (GET), atualizar (PUT/PATCH) ou deletar (DELETE) um item.
+    """
+    permission_classes = [IsAuthenticated]
+    
+    # A lógica de permissão garante que um usuário só possa acessar
+    # itens de suas próprias filiais.
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_staff or user.is_superuser:
+            return Item.objects.all()
+        try:
+            user_branches = user.profile.branches.all()
+            return Item.objects.filter(stock_items__location__branch__in=user_branches).distinct()
+        except UserProfile.DoesNotExist:
+            return Item.objects.none()
+
+    def get_serializer_class(self):
+        """Usa o serializador de escrita para PUT/PATCH e o de leitura para GET."""
+        if self.request.method in ['PUT', 'PATCH']:
+            return ItemCreateUpdateSerializer
+        return ItemSerializer

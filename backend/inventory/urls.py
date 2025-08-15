@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import (
-    CategoryList, ItemListCreateView, CustomAuthToken, StockMovementCreate, 
+    CategoryList, ItemDetailView, ItemListCreateView, CustomAuthToken, StockMovementCreate, 
     LocationList, MovementTypeList, SupplierList, user_profile_view, logout_view
 )
 
@@ -12,6 +12,7 @@ urlpatterns = [
 
     # Rotas da Aplicação
     path("items/", ItemListCreateView.as_view(), name="item-list"),
+    path('items/<int:pk>/', ItemDetailView.as_view(), name='item-detail'),
     path('movements/', StockMovementCreate.as_view(), name='stockmovement-create'),
     path('locations/', LocationList.as_view(), name='location-list'),
     path('movement-types/', MovementTypeList.as_view(), name='movementtype-list'),
