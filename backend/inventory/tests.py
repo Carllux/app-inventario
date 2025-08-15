@@ -424,3 +424,28 @@ class ItemDetailAPITests(APITestCase):
         # Esperamos um 404, pois o item não existe no queryset permitido para este usuário
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertTrue(Item.objects.filter(pk=self.item_rj.pk).exists()) # Garante que não foi deletado
+
+    def test_get_stock_distribution_success(self):
+        """Verifica se um usuário pode ver a distribuição de estoque de um item permitido."""
+        self.client.force_authenticate(user=self.user_sp)
+        response = self.client.get(f'/api/items/{self.item_sp.pk}/stock/')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Esperamos 1 registro de estoque para este item
+        self.assertEqual(len(response.data['results']), 1) 
+        self.assertEqual(response.data['results'][0]['quantity'], 10)
+
+    def test_get_stock_distribution_permission_denied(self):
+        """Verifica se um usuário NÃO pode ver a distribuição de estoque de um item de outra filial."""
+        self.client.force_authenticate(user=self.user_sp)
+        # Tenta buscar o estoque do item da filial do RJ
+        response = self.client.get(f'/api/items/{self.item_rj.pk}/stock/')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # A API deve retornar uma lista VAZIA, pois o usuário não tem permissão
+        self.assertEqual(len(response.data['results']), 0)
+
+    def test_get_stock_distribution_unauthenticated(self):
+        """Verifica se um usuário não autenticado é bloqueado."""
+        response = self.client.get(f'/api/items/{self.item_sp.pk}/stock/')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)

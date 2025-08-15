@@ -321,16 +321,33 @@ class ItemDetailView(generics.RetrieveUpdateDestroyAPIView):
         return Response(read_serializer.data)
     
 
+# Em backend/inventory/views.py
+
 class ItemStockDistributionView(generics.ListAPIView):
     """
-    Endpoint para listar a distribuição de estoque de um item específico por local.
+    Endpoint para listar a distribuição de estoque de um item específico por local,
+    respeitando as permissões de filial do usuário.
     """
     serializer_class = StockItemSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # Pega o 'pk' do item da URL
-        item_pk = self.kwargs['pk']
+        user = self.request.user
+        item_pk = self.kwargs.get('pk')
         
-        # Retorna todos os StockItems para aquele item
-        return StockItem.objects.filter(item__pk=item_pk).order_by('-quantity')
+        base_queryset = StockItem.objects.filter(item__pk=item_pk)
+
+        # Se o usuário não for admin, filtramos o estoque apenas para as filiais permitidas
+        if not (user.is_staff or user.is_superuser):
+            try:
+                user_branches = user.profile.branches.all()
+                if not user_branches.exists():
+                    return StockItem.objects.none()
+                
+                # Filtra os StockItems cuja localização pertence a uma das filiais do usuário
+                base_queryset = base_queryset.filter(location__branch__in=user_branches)
+            
+            except UserProfile.DoesNotExist:
+                return StockItem.objects.none()
+                
+        return base_queryset.order_by('location__name')
