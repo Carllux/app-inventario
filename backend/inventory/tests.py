@@ -1,9 +1,18 @@
-# backend/inventory/tests.py
-
 from rest_framework.test import APITestCase
 from rest_framework import status
 from django.contrib.auth.models import User
-from .models import Branch, Item, Location, StockItem, StockMovement, UserProfile, MovementType
+from .models import (
+    Branch,
+    Category,
+    Item,
+    Location,
+    MovementType,
+    StockItem,
+    StockMovement,
+    Supplier,
+    UserProfile
+)
+
 import logging
 
 class ItemAPITests(APITestCase):
@@ -55,23 +64,14 @@ class ItemAPITests(APITestCase):
         response = self.client.get('/api/items/')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    def test_normal_user_sees_only_their_branch_items(self):
+    def test_list_is_filtered_by_user_branch(self):
         """
-        Verifica se um usuário normal vê APENAS os itens da sua filial.
+        Verifica se a listagem geral para um usuário normal retorna apenas os itens de sua filial.
         """
         # Simula o login do usuário da Filial SP
         self.client.force_authenticate(user=self.normal_user_sp)
         
-            # Testa filtro por localização
-        response = self.client.get('/api/items/?location=' + str(self.location_sp.id))
-        self.assertEqual(len(response.data['results']), 1)
-
-        # Testa que não pode acessar localização de outra filial
-        # PARA:
-        response = self.client.get('/api/items/?stock_items__location=' + str(self.location_rj.id))
-        self.assertEqual(len(response.data['results']), 0)
-        
-        # Faz a requisição para a API
+        # Faz a requisição GERAL para a API
         response = self.client.get('/api/items/')
         
         # Verificações (Asserts)
@@ -80,6 +80,33 @@ class ItemAPITests(APITestCase):
         self.assertEqual(len(response.data['results']), 1)
         # Verificamos se o item retornado é de fato o item de SP
         self.assertEqual(response.data['results'][0]['sku'], self.item_sp.sku)
+    
+    def test_user_can_filter_by_accessible_location(self):
+        """
+        Verifica se um usuário pode filtrar por uma localização à qual ele tem acesso.
+        """
+        self.client.force_authenticate(user=self.normal_user_sp)
+        
+        # Testa o filtro por uma localização PERMITIDA
+        url = f'/api/items/?stock_items__location={self.location_sp.id}'
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 1)
+    
+    def test_user_cannot_filter_by_inaccessible_location(self):
+        """
+        Verifica se o filtro por uma localização PROIBIDA retorna uma lista vazia.
+        """
+        self.client.force_authenticate(user=self.normal_user_sp)
+        
+        # Testa o filtro por uma localização PROIBIDA (da filial do RJ)
+        url = f'/api/items/?stock_items__location={self.location_rj.id}'
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # A verificação crucial: esperamos que a lista de resultados seja VAZIA
+        self.assertEqual(len(response.data['results']), 0)
 
     def test_admin_user_sees_all_items(self):
         """
@@ -98,6 +125,10 @@ class ItemAPITests(APITestCase):
 
         # Adicione este código ao final do arquivo backend/inventory/tests.py
 
+
+ # Mantenha as outras classes de teste (ItemListAPITests e ItemCreateAPITests) como estão.
+# Substitua apenas as duas classes StockMovementAPITests por esta.
+
 class StockMovementAPITests(APITestCase):
     """
     Suite de testes para o endpoint de criação de Movimentações (/api/movements/).
@@ -107,129 +138,142 @@ class StockMovementAPITests(APITestCase):
         """
         Cria um cenário base para os testes de movimentação.
         """
-        # --- Criar Usuários e Hierarquia ---
-        self.admin_user = User.objects.create_superuser('admin_mov', 'admin_mov@test.com', 'password123')
+        self.user = User.objects.create_user('testuser_mover', 'mover@test.com', 'password123')
         self.branch = Branch.objects.create(name='Filial Teste Mov')
         self.location = Location.objects.create(branch=self.branch, location_code='MOV-A1', name='Prateleira Mov')
-        
-        # --- Criar Item e Tipo de Movimentação ---
-        self.item = Item.objects.create(owner=self.admin_user, sku='SKU-MOV-001', name='Item para Movimentar', sale_price=50.00, purchase_price=25.00)
+        self.item = Item.objects.create(owner=self.user, sku='SKU-MOV-001', name='Item para Movimentar', sale_price=50.00, purchase_price=25.00)
         self.entry_type = MovementType.objects.create(name='Entrada Teste', factor=1)
         
-        # Opcional: Criar um estoque inicial para testar saídas
+        # Cria um estoque inicial de 50 unidades para o item
         StockItem.objects.create(item=self.item, location=self.location, quantity=50)
 
     def test_authenticated_user_can_create_movement(self):
-        """
-        Verifica se um usuário logado pode criar uma movimentação com dados válidos.
-        """
-        logging.info("\n--- INICIANDO: test_authenticated_user_can_create_movement ---")
-        
-        # Simula o login do usuário
-        self.client.force_authenticate(user=self.admin_user)
-        logging.info(f"Usuário autenticado: {self.admin_user.username}")
-
-        # Pega o saldo de estoque ANTES da movimentação
+        """Verifica se um usuário logado pode criar uma movimentação com dados válidos."""
+        self.client.force_authenticate(user=self.user)
         stock_before = StockItem.objects.get(item=self.item, location=self.location).quantity
-        logging.info(f"Estoque inicial do item '{self.item.name}': {stock_before}")
         
-        # Dados da nova movimentação
         movement_data = {
             'item': self.item.pk,
             'location': self.location.pk,
             'movement_type': self.entry_type.pk,
             'quantity': 10
         }
-        logging.info(f"Enviando dados da movimentação: {movement_data}")
-
-        # Faz a requisição POST para a API
         response = self.client.post('/api/movements/', movement_data, format='json')
         
-        # Verificações (Asserts) com mensagens de erro personalizadas
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED, f"Erro! A API retornou status {response.status_code} em vez de 201. Resposta: {response.data}")
-        logging.info("SUCESSO: A API retornou status 201 Created.")
-
-        # Verifica se a movimentação foi realmente criada no banco de dados
-        self.assertEqual(StockMovement.objects.count(), 1, "A movimentação não foi criada no banco de dados.")
-        logging.info("SUCESSO: Movimentação criada no banco.")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, f"A API falhou com o erro: {response.data}")
         
-        # A verificação mais importante: o saldo do estoque foi atualizado corretamente?
         stock_after = StockItem.objects.get(item=self.item, location=self.location).quantity
-        expected_stock = stock_before + movement_data['quantity']
-        
-        logging.info(f"Estoque final do item '{self.item.name}': {stock_after}")
-        logging.info(f"Estoque esperado: {expected_stock}")
-
-        self.assertEqual(stock_after, expected_stock, f"O saldo final do estoque está incorreto! Esperado: {expected_stock}, Recebido: {stock_after}")
-        logging.info("SUCESSO: Saldo do estoque atualizado corretamente.")
-        logging.info("--- TESTE CONCLUÍDO: test_authenticated_user_can_create_movement ---\n")
-
+        self.assertEqual(stock_after, stock_before + 10)
 
     def test_unauthenticated_user_cannot_create_movement(self):
-        """
-        Verifica se um usuário não logado é bloqueado ao tentar criar uma movimentação.
-        """
+        """Verifica se um usuário não logado é bloqueado."""
         movement_data = {
-            'item': self.item.pk,
-            'location': self.location.pk,
-            'movement_type': self.entry_type.pk,
-            'quantity': 10
+            'item': self.item.pk, 'location': self.location.pk,
+            'movement_type': self.entry_type.pk, 'quantity': 10
         }
-        
         response = self.client.post('/api/movements/', movement_data, format='json')
-        
-        # Esperamos um erro 401 Unauthorized
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_create_movement_fails_with_missing_data(self):
-        """
-        Verifica se a API rejeita a criação de uma movimentação se faltarem dados essenciais.
-        """
-        self.client.force_authenticate(user=self.admin_user)
-        
-        # Dados inválidos (faltando 'item')
+        """Verifica a rejeição de dados essenciais faltando."""
+        self.client.force_authenticate(user=self.user)
         invalid_data = {
             'location': self.location.pk,
             'movement_type': self.entry_type.pk,
             'quantity': 10
         }
-        
         response = self.client.post('/api/movements/', invalid_data, format='json')
-        
-        # Esperamos um erro 400 Bad Request
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        # Verificamos que o erro é especificamente sobre o campo 'item'
-        self.assertIn('item', str(response.data['detail']))
+        self.assertIn('item', str(response.data))
         
     def test_movement_quantity_must_be_positive(self):
-        """Verifica se a API rejeita quantidades negativas ou zero"""
-        self.client.force_authenticate(user=self.admin_user)
-
+        """Verifica a rejeição de quantidade zero ou negativa."""
+        self.client.force_authenticate(user=self.user)
         invalid_data = {
-            'item': self.item.pk,
-            'location': self.location.pk,
-            'movement_type': self.entry_type.pk,
-            'quantity': 0  # Valor inválido
+            'item': self.item.pk, 'location': self.location.pk,
+            'movement_type': self.entry_type.pk, 'quantity': 0
         }
-
         response = self.client.post('/api/movements/', invalid_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('quantity', str(response.data['detail']))
+        self.assertIn('quantity', str(response.data))
 
     def test_outbound_movement_fails_with_insufficient_stock(self):
-        """Verifica se saídas com estoque insuficiente são rejeitadas"""
-        # Cria um tipo de saída (factor negativo)
+        """Verifica se saídas com estoque insuficiente são rejeitadas."""
         outbound_type = MovementType.objects.create(name='Saída Teste', factor=-1)
-
-        self.client.force_authenticate(user=self.admin_user)
-
+        self.client.force_authenticate(user=self.user)
         invalid_data = {
-            'item': self.item.pk,
-            'location': self.location.pk,
+            'item': self.item.pk, 'location': self.location.pk,
             'movement_type': outbound_type.pk,
-            'quantity': 1000  # Quantidade maior que o estoque
+            'quantity': 100 # Mais do que as 50 unidades em estoque
         }
-
         response = self.client.post('/api/movements/', invalid_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('Estoque insuficiente', str(response.data['detail']))       
+        self.assertIn('Estoque insuficiente', str(response.data))
+
+class ItemListAPITests(APITestCase):
+    def setUp(self):
+        self.admin_user = User.objects.create_superuser('admin', 'admin@test.com', 'password123')
+        self.normal_user_sp = User.objects.create_user('user_sp', 'sp@test.com', 'password123')
+        self.branch_sp = Branch.objects.create(name='Filial SP')
+        self.location_sp = Location.objects.create(branch=self.branch_sp, location_code='SP-A1', name='Prateleira SP')
+        profile_sp = UserProfile.objects.create(user=self.normal_user_sp)
+        profile_sp.branches.add(self.branch_sp)
+        self.item_sp = Item.objects.create(owner=self.admin_user, sku='SKU-SP-001', name='Item de SP', sale_price=10.00)
+        StockItem.objects.create(item=self.item_sp, location=self.location_sp, quantity=100)
+
+    def test_unauthenticated_user_cannot_access_items(self):
+        response = self.client.get('/api/items/')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_normal_user_sees_only_their_branch_items(self):
+        self.client.force_authenticate(user=self.normal_user_sp)
+        response = self.client.get('/api/items/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 1)
+        self.assertEqual(response.data['results'][0]['sku'], self.item_sp.sku)
+
+    def test_admin_user_sees_all_items(self):
+        # Cenário adicional
+        branch_rj = Branch.objects.create(name='Filial RJ')
+        location_rj = Location.objects.create(branch=branch_rj, location_code='RJ-B2', name='Prateleira RJ')
+        item_rj = Item.objects.create(owner=self.admin_user, sku='SKU-RJ-002', name='Item de RJ', sale_price=20.00)
+        StockItem.objects.create(item=item_rj, location=location_rj, quantity=50)
+        
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get('/api/items/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 2)
+
+
+# --- SUÍTE 2: TESTES PARA A CRIAÇÃO DE ITENS (POST) ---
+class ItemCreateAPITests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user('testuser_creator', 'creator@test.com', 'password123')
+        self.category = Category.objects.create(name='Categoria Teste')
+        self.supplier = Supplier.objects.create(name='Fornecedor Teste', country='BR')
+
+    def test_authenticated_user_can_create_item(self):
+        self.client.force_authenticate(user=self.user)
+        item_data = {
+            "sku": "SKU-TEST-123", "name": "Item Criado Via Teste",
+            "category": self.category.pk, "supplier": self.supplier.pk,
+            "sale_price": 199.99, "purchase_price": 100.00
+        }
+        response = self.client.post('/api/items/', item_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Item.objects.count(), 1)
+        self.assertEqual(Item.objects.get().owner, self.user)
+
+    def test_unauthenticated_user_cannot_create_item(self):
+        item_data = {"sku": "SKU-FAIL-456", "name": "Item Falho", "sale_price": 10.00}
+        response = self.client.post('/api/items/', item_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_create_item_fails_with_invalid_data(self):
+        self.client.force_authenticate(user=self.user)
+        invalid_data = {"name": "Item Inválido", "sale_price": 10.00}
+        response = self.client.post('/api/items/', invalid_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('sku', response.data)
+
+

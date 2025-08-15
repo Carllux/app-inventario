@@ -152,8 +152,10 @@ class MovementTypeList(BaseListView):
 
 # --- VIEWS PRINCIPAIS DA APLICAÇÃO ---
 
-class ItemListCreateView(BaseListView):
+class ItemListCreateView(generics.ListCreateAPIView):
     serializer_class = ItemSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
     search_fields = ['sku', 'name', 'brand', 'supplier__name']
     ordering_fields = ['name', 'sku', 'sale_price', 'purchase_price', 'total_quantity']
     filterset_fields = {
@@ -168,48 +170,53 @@ class ItemListCreateView(BaseListView):
     }
 
     def get_serializer_class(self):
-        """Usa um serializador diferente para leitura (GET) e escrita (POST)."""
         if self.request.method == 'POST':
             return ItemCreateUpdateSerializer
         return ItemSerializer
     
     def perform_create(self, serializer):
-        """Associa o item ao usuário logado no momento da criação."""
         serializer.save(owner=self.request.user)
 
     def get_queryset(self):
-        logger.info(f"ItemList accessed by {self.request.user.username}")
-        queryset = Item.objects.all().prefetch_related(
-            'stock_items__location__branch',
-            'category',
-            'supplier'
-        ).select_related('category', 'supplier')
-        
-        # Filtro por usuário não admin
-        if not (self.request.user.is_staff or self.request.user.is_superuser):
+        user = self.request.user
+        queryset = Item.objects.all().select_related('category', 'supplier').prefetch_related('stock_items__location__branch')
+
+        # 1. Filtro de segurança por filial (para não-admins)
+        if not (user.is_staff or user.is_superuser):
             try:
-                user_branches = self.request.user.profile.branches.all()
-                if user_branches.exists():
-                    queryset = queryset.filter(
-                        stock_items__location__branch__in=user_branches
-                    ).distinct()
-                else:
+                user_branches = user.profile.branches.all()
+                if not user_branches.exists():
                     return Item.objects.none()
+                queryset = queryset.filter(stock_items__location__branch__in=user_branches).distinct()
             except UserProfile.DoesNotExist:
                 return Item.objects.none()
         
-        # Filtro adicional por baixo estoque
-        if self.request.query_params.get('low_stock', '').lower() == 'true':
-            queryset = queryset.annotate(
-                is_low_stock_condition=models.ExpressionWrapper(
-                    models.F('total_quantity') <= models.F('minimum_stock_level'),
-                    output_field=models.BooleanField()
-                )
-            ).filter(is_low_stock_condition=True)
-    
+        # ✅ 2. APLICAMOS OS FILTROS DA URL MANUALMENTE AQUI
+        # Filtro por localização
+        location_id = self.request.query_params.get('stock_items__location')
+        if location_id:
+            queryset = queryset.filter(stock_items__location__id=location_id)
+            
+        # Filtro por categoria
+        category_id = self.request.query_params.get('category')
+        if category_id:
+            queryset = queryset.filter(category__id=category_id)
 
+        # Adicione outros filtros manuais aqui se necessário (status, supplier, etc.)
+            
+        return queryset.distinct() # Garante que não haja duplicatas
 
-        return queryset
+    # ✅ MÉTODO ADICIONADO PARA CORRIGIR O TypeError
+    def create(self, request, *args, **kwargs):
+        write_serializer = self.get_serializer(data=request.data)
+        write_serializer.is_valid(raise_exception=True)
+        self.perform_create(write_serializer)
+
+        # Para a resposta, usamos o serializador de LEITURA
+        read_serializer = ItemSerializer(write_serializer.instance)
+        
+        headers = self.get_success_headers(read_serializer.data)
+        return Response(read_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 class StockMovementCreate(generics.CreateAPIView):
     """Endpoint para registrar uma nova movimentação de estoque."""
