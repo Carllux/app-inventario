@@ -305,3 +305,17 @@ class ItemDetailView(generics.RetrieveUpdateDestroyAPIView):
         if self.request.method in ['PUT', 'PATCH']:
             return ItemCreateUpdateSerializer
         return ItemSerializer
+    
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        
+        # Usa o serializador de ESCRITA para validar e salvar
+        write_serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        write_serializer.is_valid(raise_exception=True)
+        self.perform_update(write_serializer)
+
+        # Para a RESPOSTA, usa o serializador de LEITURA
+        read_serializer = ItemSerializer(write_serializer.instance)
+        
+        return Response(read_serializer.data)

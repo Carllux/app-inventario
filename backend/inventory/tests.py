@@ -277,3 +277,83 @@ class ItemCreateAPITests(APITestCase):
         self.assertIn('sku', response.data)
 
 
+class ItemDetailAPITests(APITestCase):
+    """
+    Suite de testes para o endpoint de detalhe do Item (GET, PATCH, DELETE /api/items/<id>/).
+    """
+
+    def setUp(self):
+        # Cenário com 2 usuários, 2 filiais e 2 itens, um em cada filial.
+        self.admin_user = User.objects.create_superuser('admin_detail', 'detail@test.com', 'password123')
+        self.user_sp = User.objects.create_user('user_sp_detail', 'sp_detail@test.com', 'password123')
+
+        self.branch_sp = Branch.objects.create(name='Filial SP Detail')
+        self.branch_rj = Branch.objects.create(name='Filial RJ Detail')
+
+        profile_sp = UserProfile.objects.create(user=self.user_sp)
+        profile_sp.branches.add(self.branch_sp)
+
+        location_sp = Location.objects.create(branch=self.branch_sp, location_code='SP-DETAIL', name='Loc SP Detail')
+        location_rj = Location.objects.create(branch=self.branch_rj, location_code='RJ-DETAIL', name='Loc RJ Detail')
+
+        self.item_sp = Item.objects.create(owner=self.admin_user, sku='SKU-SP-DETAIL', name='Item de SP', sale_price=100)
+        self.item_rj = Item.objects.create(owner=self.admin_user, sku='SKU-RJ-DETAIL', name='Item de RJ', sale_price=200)
+
+        StockItem.objects.create(item=self.item_sp, location=location_sp, quantity=10)
+        StockItem.objects.create(item=self.item_rj, location=location_rj, quantity=20)
+
+
+    def test_retrieve_item_success(self):
+        """Verifica se um usuário pode buscar um item da sua filial."""
+        self.client.force_authenticate(user=self.user_sp)
+        response = self.client.get(f'/api/items/{self.item_sp.pk}/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['sku'], self.item_sp.sku)
+
+    def test_retrieve_item_permission_denied(self):
+        """Verifica se um usuário NÃO pode buscar um item de outra filial."""
+        self.client.force_authenticate(user=self.user_sp)
+        # Tenta buscar o item da filial do RJ, à qual não tem acesso
+        response = self.client.get(f'/api/items/{self.item_rj.pk}/')
+        # A view retorna 404 pois o item não existe no queryset permitido do usuário
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_update_item_success(self):
+        """Verifica se um usuário pode atualizar um item da sua filial."""
+        self.client.force_authenticate(user=self.user_sp)
+        update_data = {'name': 'Nome do Item Atualizado'}
+        
+        response = self.client.patch(f'/api/items/{self.item_sp.pk}/', update_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # Verifica se a mudança foi salva no banco de dados
+        self.item_sp.refresh_from_db()
+        self.assertEqual(self.item_sp.name, 'Nome do Item Atualizado')
+        
+    def test_delete_item_success(self):
+        """Verifica se um usuário pode deletar um item da sua filial."""
+        self.client.force_authenticate(user=self.user_sp)
+        response = self.client.delete(f'/api/items/{self.item_sp.pk}/')
+        
+        # Deleção bem-sucedida retorna 204 No Content
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        
+        # Verifica se o item foi realmente removido do banco de dados
+        self.assertFalse(Item.objects.filter(pk=self.item_sp.pk).exists())
+
+    def test_unauthenticated_user_cannot_delete_item(self):
+        """Verifica se um usuário não autenticado não pode deletar um item."""
+        response = self.client.delete(f'/api/items/{self.item_sp.pk}/')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertTrue(Item.objects.filter(pk=self.item_sp.pk).exists()) # Garante que não foi deletado
+
+    def test_user_cannot_delete_item_from_other_branch(self):
+        """Verifica se um usuário não pode deletar um item de outra filial."""
+        # Loga como usuário de SP
+        self.client.force_authenticate(user=self.user_sp)
+        # Tenta deletar o item da filial do RJ
+        response = self.client.delete(f'/api/items/{self.item_rj.pk}/')
+        
+        # Esperamos um 404, pois o item não existe no queryset permitido para este usuário
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertTrue(Item.objects.filter(pk=self.item_rj.pk).exists()) # Garante que não foi deletado
