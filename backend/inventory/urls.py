@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
-    ItemListCreateView, CustomAuthToken, StockMovementCreate, 
-    LocationList, MovementTypeList, user_profile_view, logout_view
+    CategoryList, ItemListCreateView, CustomAuthToken, StockMovementCreate, 
+    LocationList, MovementTypeList, SupplierList, user_profile_view, logout_view
 )
 
 urlpatterns = [
@@ -15,5 +15,7 @@ urlpatterns = [
     path('movements/', StockMovementCreate.as_view(), name='stockmovement-create'),
     path('locations/', LocationList.as_view(), name='location-list'),
     path('movement-types/', MovementTypeList.as_view(), name='movementtype-list'),
+    path('categories/', CategoryList.as_view(), name='category-list'),
+    path('suppliers/', SupplierList.as_view(), name='supplier-list'),
 
 ]

@@ -13,12 +13,12 @@ from django.contrib.auth.models import User
 from django.db import models, transaction
 # Bloco de import unificado para modelos
 from .models import (
-    Branch, Sector, Location, UserProfile,
+    Branch, Category, Sector, Location, Supplier, UserProfile,
     Item, MovementType, StockMovement, StockItem
 )
 # Bloco de import unificado para serializadores
 from .serializers import (
-    StockItemSerializer, UserSerializer, BranchSerializer, SectorSerializer, LocationSerializer,
+    CategorySerializer, StockItemSerializer, SupplierSerializer, UserSerializer, BranchSerializer, SectorSerializer, LocationSerializer,
     ItemSerializer, MovementTypeSerializer, StockMovementSerializer, ItemCreateUpdateSerializer 
 )
 import logging
@@ -271,3 +271,13 @@ class StockItemView(generics.RetrieveUpdateAPIView):
         logger.info(
             f"StockItem {instance.id} updated by {self.request.user.username}"
         )
+
+
+class CategoryList(BaseListView):
+    queryset = Category.objects.filter(is_active=True)
+    serializer_class = CategorySerializer
+
+class SupplierList(BaseListView):
+    queryset = Supplier.objects.filter(is_active=True)
+    serializer_class = SupplierSerializer
+    search_fields = ['name', 'cnpj'] # Permite buscar por nome ou cnpj

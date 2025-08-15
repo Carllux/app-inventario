@@ -1,0 +1,110 @@
+/* frontend/src/components/ItemFormModal.module.css */
+
+.backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: var(--z-index-modal, 1000);
+  opacity: 0;
+  animation: fadeIn 0.3s forwards;
+}
+
+.content {
+  width: 100%;
+  max-width: 800px; /* Um modal mais largo para o formulário */
+  position: relative;
+  padding: 0; /* O padding será interno */
+  transform: scale(0.95);
+  opacity: 0;
+  animation: fadeInScaleUp 0.3s 0.1s forwards;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.header h2 {
+  font-size: var(--text-xl);
+  margin: 0;
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  font-size: 1.75rem;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  line-height: 1;
+  transition: transform var(--transition);
+}
+.closeButton:hover {
+  transform: scale(1.1) rotate(90deg);
+}
+
+.form {
+  padding: var(--space-lg);
+  max-height: 70vh; /* Permite rolagem em telas pequenas */
+  overflow-y: auto;
+}
+
+.error {
+  color: var(--color-danger);
+  background-color: rgba(220, 53, 69, 0.1);
+  padding: var(--space-md);
+  border-radius: var(--border-radius);
+  margin: 0 var(--space-lg) var(--space-md);
+  text-align: center;
+}
+
+fieldset {
+  border: none;
+  padding: 0;
+  margin: 0 0 var(--space-lg) 0;
+}
+fieldset:last-of-type {
+  margin-bottom: 0;
+}
+
+legend {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  margin-bottom: var(--space-md);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--color-border);
+  width: 100%;
+}
+
+.formRow {
+  display: grid;
+  /* Cria colunas responsivas automaticamente */
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-md);
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-md);
+  margin-top: var(--space-lg);
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--color-border);
+}
+
+/* Animações */
+@keyframes fadeIn {
+  to { opacity: 1; }
+}
+
+@keyframes fadeInScaleUp {
+  to { transform: scale(1); opacity: 1; }
+}
