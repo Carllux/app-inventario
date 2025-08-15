@@ -319,3 +319,18 @@ class ItemDetailView(generics.RetrieveUpdateDestroyAPIView):
         read_serializer = ItemSerializer(write_serializer.instance)
         
         return Response(read_serializer.data)
+    
+
+class ItemStockDistributionView(generics.ListAPIView):
+    """
+    Endpoint para listar a distribuição de estoque de um item específico por local.
+    """
+    serializer_class = StockItemSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # Pega o 'pk' do item da URL
+        item_pk = self.kwargs['pk']
+        
+        # Retorna todos os StockItems para aquele item
+        return StockItem.objects.filter(item__pk=item_pk).order_by('-quantity')

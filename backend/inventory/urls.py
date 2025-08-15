@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
     CategoryList, ItemDetailView, ItemListCreateView, CustomAuthToken, StockMovementCreate, 
-    LocationList, MovementTypeList, SupplierList, user_profile_view, logout_view
+    LocationList, MovementTypeList, SupplierList, user_profile_view, logout_view, ItemStockDistributionView 
 )
 
 urlpatterns = [
@@ -13,6 +13,7 @@ urlpatterns = [
     # Rotas da Aplicação
     path("items/", ItemListCreateView.as_view(), name="item-list"),
     path('items/<int:pk>/', ItemDetailView.as_view(), name='item-detail'),
+    path('items/<int:pk>/stock/', ItemStockDistributionView.as_view(), name='item-stock-distribution'),
     path('movements/', StockMovementCreate.as_view(), name='stockmovement-create'),
     path('locations/', LocationList.as_view(), name='location-list'),
     path('movement-types/', MovementTypeList.as_view(), name='movementtype-list'),
