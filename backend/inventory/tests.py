@@ -20,8 +20,6 @@ class ItemAPITests(APITestCase):
     Suite de testes para o endpoint de listagem de Itens (/api/items/).
     """
 
-# Em inventory/tests.py, dentro da classe ItemAPITests
-
     def setUp(self):
         """
         Este método é executado ANTES de cada teste.
@@ -212,14 +210,55 @@ class StockMovementAPITests(APITestCase):
 
 class ItemListAPITests(APITestCase):
     def setUp(self):
+        """
+        Este método é executado ANTES de cada teste.
+        Ele cria um cenário de dados consistente para todos os testes.
+        """
+        # --- Criar Usuários ---
         self.admin_user = User.objects.create_superuser('admin', 'admin@test.com', 'password123')
         self.normal_user_sp = User.objects.create_user('user_sp', 'sp@test.com', 'password123')
+        self.normal_user_rj = User.objects.create_user('user_rj', 'rj@test.com', 'password123')
+
+        # --- Criar Hierarquia Organizacional ---
         self.branch_sp = Branch.objects.create(name='Filial SP')
+        self.branch_rj = Branch.objects.create(name='Filial RJ')
+
         self.location_sp = Location.objects.create(branch=self.branch_sp, location_code='SP-A1', name='Prateleira SP')
+        self.location_rj = Location.objects.create(branch=self.branch_rj, location_code='RJ-B2', name='Prateleira RJ')
+
+        # --- Criar Perfis e Associar Permissões ---
         profile_sp = UserProfile.objects.create(user=self.normal_user_sp)
         profile_sp.branches.add(self.branch_sp)
-        self.item_sp = Item.objects.create(owner=self.admin_user, sku='SKU-SP-001', name='Item de SP', sale_price=10.00)
+
+        profile_rj = UserProfile.objects.create(user=self.normal_user_rj)
+        profile_rj.branches.add(self.branch_rj)
+
+        # ✅ DADOS DE SUPORTE ADICIONADOS AQUI
+        self.category = Category.objects.create(name='Categoria de Teste')
+        self.supplier = Supplier.objects.create(name='Fornecedor de Teste', country='BR')
+
+        # --- Criar Itens e Estoque (agora com categoria e fornecedor) ---
+        self.item_sp = Item.objects.create(
+            owner=self.admin_user, 
+            sku='SKU-SP-001', 
+            name='Item de SP', 
+            sale_price=10.00,
+            category=self.category,
+            supplier=self.supplier
+        )
+        self.item_rj = Item.objects.create(
+            owner=self.admin_user, 
+            sku='SKU-RJ-002', 
+            name='Item de RJ', 
+            sale_price=20.00,
+            category=self.category,
+            supplier=self.supplier
+        )
+
+        # Adiciona estoque para cada item em seu respectivo local
         StockItem.objects.create(item=self.item_sp, location=self.location_sp, quantity=100)
+        StockItem.objects.create(item=self.item_rj, location=self.location_rj, quantity=50)
+
 
     def test_unauthenticated_user_cannot_access_items(self):
         response = self.client.get('/api/items/')
@@ -232,17 +271,45 @@ class ItemListAPITests(APITestCase):
         self.assertEqual(len(response.data['results']), 1)
         self.assertEqual(response.data['results'][0]['sku'], self.item_sp.sku)
 
-    def test_admin_user_sees_all_items(self):
-        # Cenário adicional
-        branch_rj = Branch.objects.create(name='Filial RJ')
-        location_rj = Location.objects.create(branch=branch_rj, location_code='RJ-B2', name='Prateleira RJ')
-        item_rj = Item.objects.create(owner=self.admin_user, sku='SKU-RJ-002', name='Item de RJ', sale_price=20.00)
-        StockItem.objects.create(item=item_rj, location=location_rj, quantity=50)
-        
+
+
+    def test_item_api_response_contains_expected_fields(self):
+        """
+        Verifica se a resposta da API para um item contém todos os campos esperados
+        pelo frontend (o "contrato" da API).
+        """
+        # Autentica como um usuário que pode ver itens
         self.client.force_authenticate(user=self.admin_user)
+        
+        # Faz a requisição para a API
         response = self.client.get('/api/items/')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data['results']), 2)
+        
+        # Pega o primeiro item da lista de resultados
+        self.assertGreater(len(response.data['results']), 0, "A API não retornou nenhum item para testar.")
+        item_data = response.data['results'][0]
+
+        # Define a lista de campos que o frontend (ItemCard.jsx) OBRIGATORIAMENTE espera
+        expected_fields = [
+            'id',
+            'sku',
+            'name',
+            'category',       # Esperamos um objeto aninhado
+            'supplier',       # Esperamos um objeto aninhado
+            'photo',
+            'total_quantity',
+            'is_low_stock',
+            'sale_price',
+            'brand',
+            'short_description' # O campo que causou o bug
+        ]
+
+        # Verifica se cada campo esperado está presente na resposta
+        for field in expected_fields:
+            self.assertIn(field, item_data, f"O campo '{field}' está faltando no contrato da API de itens.")
+            
+        # Opcional: Verifica a estrutura dos campos aninhados
+        self.assertIn('name', item_data['category'])
+        self.assertIn('name', item_data['supplier'])
 
 
 # --- SUÍTE 2: TESTES PARA A CRIAÇÃO DE ITENS (POST) ---

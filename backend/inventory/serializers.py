@@ -75,7 +75,7 @@ class ItemSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'sku', 'name', 'status', 'category', 'supplier', 'photo', 
             'brand', 'purchase_price', 'sale_price', 'unit_of_measure', 
-            'origin', 'cfop', 'minimum_stock_level', 'total_quantity', 'is_low_stock', 'owner'
+            'origin', 'cfop', 'minimum_stock_level', 'total_quantity', 'is_low_stock', 'owner', 'short_description'
         ]
         extra_kwargs = {
             'owner': {'read_only': True}  # Normalmente definido automaticamente

@@ -1,79 +1,102 @@
-import { useState, useEffect } from 'react';
+// frontend/src/hooks/useItemForm.js
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { createItem, updateItem, getItemById } from '../services/itemService';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
-const INITIAL_FORM_STATE = {
-  sku: '', name: '', category: '', supplier: '', status: 'ACTIVE',
-  purchase_price: '0.00', sale_price: '0.00', minimum_stock_level: 10,
-};
+// ✅ FUNÇÃO GERADORA: Cria um objeto de formulário limpo e completo.
+const createInitialFormState = () => ({
+  sku: '',
+  name: '',
+  category: '',
+  supplier: '',
+  status: 'ACTIVE',
+  brand: '',
+  purchase_price: '0.00',
+  sale_price: '0.00',
+  unit_of_measure: 'Peça',
+  minimum_stock_level: 10,
+  short_description: '', // Garante que todos os campos estejam presentes
+  // Adicione aqui quaisquer outros campos do formulário
+});
 
 export function useItemForm(isOpen, itemId, onSuccess) {
-  const [formData, setFormData] = useState(INITIAL_FORM_STATE);
+  // ✅ USA A FUNÇÃO GERADORA
+  const [formData, setFormData] = useState(createInitialFormState());
   const [categories, setCategories] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isEditMode = itemId != null;
 
-  // Efeito 1: Busca dados dos dropdowns (categorias, fornecedores)
   useEffect(() => {
-    if (isOpen) {
-      const fetchDropdownData = async () => {
-        setIsLoading(true);
-        try {
-          const [catRes, supRes] = await Promise.all([
-            axios.get(`${API_URL}/api/categories/`),
-            axios.get(`${API_URL}/api/suppliers/`),
-          ]);
-          setCategories(catRes.data.results || catRes.data);
-          setSuppliers(supRes.data.results || supRes.data);
-        } catch (err) {
-          setError("Falha ao carregar opções do formulário.");
-        }
-        // Não definimos setIsLoading(false) aqui
-      };
-      fetchDropdownData();
-    }
-  }, [isOpen]);
+    if (!isOpen) return;
 
-  // Efeito 2: Busca os dados do item para edição OU reseta o formulário
-  useEffect(() => {
-    if (isOpen) {
-      if (isEditMode) {
-        const fetchItemData = async () => {
-          try {
-            const itemData = await getItemById(itemId);
-            setFormData({
-              sku: itemData.sku,
-              name: itemData.name,
-              category: itemData.category?.id || '',
-              supplier: itemData.supplier?.id || '',
-              status: itemData.status,
-              purchase_price: itemData.purchase_price,
-              sale_price: itemData.sale_price,
-              minimum_stock_level: itemData.minimum_stock_level,
-            });
-          } catch (err) {
-            setError("Falha ao carregar dados do item.");
-          } finally {
-            setIsLoading(false); // isLoading termina aqui
-          }
-        };
-        fetchItemData();
-      } else {
-        // Modo de criação: apenas reseta e finaliza o loading
-        setFormData(INITIAL_FORM_STATE);
+    setIsLoading(true);
+    setError('');
+
+    const fetchDependencies = async () => {
+      try {
+        const [catRes, supRes] = await Promise.all([
+          axios.get(`${API_URL}/api/categories/`),
+          axios.get(`${API_URL}/api/suppliers/`),
+        ]);
+        setCategories(catRes.data.results || catRes.data);
+        setSuppliers(supRes.data.results || supRes.data);
+
+        if (isEditMode) {
+          const itemData = await getItemById(itemId);
+          // ✅ MAPEAMENTO DINÂMICO: Preenche o formulário apenas com as chaves que ele já conhece.
+          const initialData = createInitialFormState();
+          Object.keys(initialData).forEach(key => {
+            if (key === 'category' || key === 'supplier') {
+              initialData[key] = itemData[key]?.id || '';
+            } else if (itemData[key] !== null && itemData[key] !== undefined) {
+              initialData[key] = itemData[key];
+            }
+          });
+          setFormData(initialData);
+        } else {
+          setFormData(createInitialFormState()); // Reseta para o estado limpo
+        }
+
+      } catch (err) {
+        setError("Falha ao carregar dados para o formulário.");
+      } finally {
         setIsLoading(false);
       }
-    }
-  }, [isOpen, itemId, isEditMode, categories, suppliers]); // Depende dos dados dos dropdowns
+    };
 
-  const handleChange = (e) => { /* ... */ };
-  const handleSubmit = async (e) => { /* ... */ };
+    fetchDependencies();
+  }, [isOpen, itemId, isEditMode]);
+  
+  const handleChange = useCallback((e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  }, []);
+
+  const handleSubmit = useCallback(async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    console.log("2. Tentando enviar os seguintes dados:", formData); // PONTO DE DEBUG 2
+
+    setError('');
+    try {
+      if (isEditMode) {
+        await updateItem(itemId, formData);
+      } else {
+        await createItem(formData);
+      }
+      onSuccess();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [formData, isEditMode, itemId, onSuccess]);
 
   return {
     formData, error, isLoading, isSubmitting, categories, suppliers,

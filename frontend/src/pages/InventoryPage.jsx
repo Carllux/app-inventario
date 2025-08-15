@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import ItemCard from '../components/ItemCard';
 import MovementFormModal from '../components/MovementFormModal';
-import ItemFormModal from '../components/ItemFormModal'; // 1. Importe o novo modal de Item
+import ItemFormModal from '../components/ItemFormModal';
 import styles from './InventoryPage.module.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
@@ -19,7 +19,8 @@ function InventoryPage() {
   const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
   const [selectedItemForMovement, setSelectedItemForMovement] = useState(null);
   
-  const [isItemModalOpen, setIsItemModalOpen] = useState(false); // 2. Novo estado para o modal de Item
+  const [isItemModalOpen, setIsItemModalOpen] = useState(false);
+  const [editingItemId, setEditingItemId] = useState(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -40,9 +41,7 @@ function InventoryPage() {
         setIsLoading(false);
       }
     };
-
     fetchItems();
-
     return () => controller.abort();
   }, [refreshKey]);
 
@@ -51,14 +50,25 @@ function InventoryPage() {
     setSelectedItemForMovement(item);
     setIsMovementModalOpen(true);
   };
-  const handleMovementSuccess = () => {
-    setIsMovementModalOpen(false);
-    setRefreshKey(oldKey => oldKey + 1);
+
+  // --- Handlers para o Modal de Item (Criar/Editar) ---
+  const handleOpenCreateItemModal = () => {
+    setEditingItemId(null); // Assegura que estamos no modo de criação
+    setIsItemModalOpen(true);
   };
 
-  // --- Handlers para o Novo Modal de Item ---
-  const handleItemCreateSuccess = () => {
-    setIsItemModalOpen(false); // Fecha o modal de item
+  const handleOpenEditItemModal = (item) => {
+    setEditingItemId(item.id); // Define o ID para o modo de edição
+    setIsItemModalOpen(true);
+  };
+
+  // --- Handler de Sucesso Genérico ---
+  // Esta função é chamada por AMBOS os modais após sucesso
+  const handleFormSuccess = () => {
+    setIsItemModalOpen(false);
+    setIsMovementModalOpen(false);
+    setEditingItemId(null);
+    setSelectedItemForMovement(null);
     setRefreshKey(oldKey => oldKey + 1); // Força a atualização da lista
   };
 
@@ -74,8 +84,7 @@ function InventoryPage() {
       <div className={styles.pageHeader}>
         <h1>Itens do Inventário</h1>
         <div className={styles.headerActions}>
-          {/* 3. Novo botão para Adicionar Item */}
-          <button className="button button-primary" onClick={() => setIsItemModalOpen(true)}>
+          <button className="button button-primary" onClick={handleOpenCreateItemModal}>
             + Adicionar Item
           </button>
           <button 
@@ -98,24 +107,25 @@ function InventoryPage() {
               key={item.id} 
               item={item} 
               onAddMovement={handleOpenMovementModal}
+              onEdit={handleOpenEditItemModal} // Conectado corretamente
             />
           ))}
         </div>
       )}
 
-      {/* Renderizamos os dois modais, cada um controlado por seu próprio estado */}
+      {/* Renderização dos Modais */}
       <MovementFormModal 
         isOpen={isMovementModalOpen}
         onClose={() => setIsMovementModalOpen(false)}
-        onSuccess={handleMovementSuccess}
+        onSuccess={handleFormSuccess}
         selectedItem={selectedItemForMovement}
       />
       
-      {/* 4. Renderização do novo modal de Item */}
       <ItemFormModal
         isOpen={isItemModalOpen}
         onClose={() => setIsItemModalOpen(false)}
-        onSuccess={handleItemCreateSuccess}
+        onSuccess={handleFormSuccess}
+        itemId={editingItemId}
       />
     </div>
   );

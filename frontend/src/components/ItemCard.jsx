@@ -5,7 +5,7 @@ import classNames from 'classnames';
 import Detail from './Detail';
 import styles from './ItemCard.module.css';
 
-function ItemCard({ item, onAddMovement }) {
+function ItemCard({ item, onAddMovement, onEdit }) {
   const cardClasses = classNames(
     'card',
     styles.card,
@@ -29,6 +29,9 @@ function ItemCard({ item, onAddMovement }) {
       <div className={styles.content}>
         {item.category && <p className={styles.category}>{item.category.name}</p>}
         <h2 className={styles.name} title={item.name}>{item.name}</h2>
+        
+        {item.short_description && <p className={styles.shortDesc}>{item.short_description}</p>}
+
         <p className={styles.sku}>SKU: {item.sku}</p>
         
         {/* ✅ BLOCO DE DETALHES PREENCHIDO */}
@@ -48,8 +51,12 @@ function ItemCard({ item, onAddMovement }) {
         >
           Movimentar
         </button>
-        <button className="button button-outline button-primary button-sm">
-          Detalhes
+        {/* ✅ O botão agora chama a função onEdit, passando o item */}
+        <button 
+          className="button button-outline button-primary button-sm"
+          onClick={() => onEdit(item)}
+        >
+          Detalhes / Editar
         </button>
       </div>
     </div>

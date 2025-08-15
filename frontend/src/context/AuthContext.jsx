@@ -35,7 +35,10 @@ export function AuthProvider({ children }) {
 
     if (token && userData) {
       // Verifica se o token ainda é válido
-      axios.get(`${API_URL}/api/check-session/`)
+      axios.defaults.headers.common['Authorization'] = `Token ${token}`;
+      setUser(JSON.parse(userData));
+      setIsAuthenticated(true);
+      axios.get(`${API_URL}/api/me/`)
         .then(() => {
           updateAuthState(token, JSON.parse(userData));
         })

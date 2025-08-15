@@ -84,3 +84,11 @@
   font-size: var(--text-sm);
   margin-top: var(--space-md);
 }
+
+/* Adicione este estilo */
+.shortDesc {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-md);
+  min-height: 40px; /* Garante uma altura mínima para consistência visual */
+}
