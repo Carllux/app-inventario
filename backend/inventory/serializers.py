@@ -132,24 +132,28 @@ class StockMovementSerializer(serializers.ModelSerializer):
                 )
         return data
 
-    def create(self, validated_data):
-        # A lógica de criação agora vive aqui.
-        validated_data['user'] = self.context['request'].user
-        
-        movement = StockMovement(**validated_data)
-        # O método .save() do modelo será chamado aqui, com toda a sua lógica.
-        movement.save() 
-        
-        return movement
+        def create(self, validated_data):
+            # A lógica de criação agora vive aqui.
+            validated_data['user'] = self.context['request'].user
+            
+            movement = StockMovement(**validated_data)
+            # O método .save() do modelo será chamado aqui, com toda a sua lógica.
+            movement.save() 
+            
+            return movement
     
 class ItemCreateUpdateSerializer(serializers.ModelSerializer):
+    owner = serializers.PrimaryKeyRelatedField(read_only=True)
+
     class Meta:
         model = Item
         # Lista de campos que o frontend poderá ENVIAR
         fields = [
             'sku', 'name', 'category', 'supplier', 'status', 'brand',
             'purchase_price', 'sale_price', 'unit_of_measure',
-            'origin', 'cfop', 'minimum_stock_level',
+            'origin', 'cfop', 'minimum_stock_level', 'owner',
+            'internal_code', 'manufacturer_code', 'short_description', 'long_description',
+            'weight', 'photo'
         ]
         # O owner será definido na view, não enviado pelo frontend
         read_only_fields = ['owner']

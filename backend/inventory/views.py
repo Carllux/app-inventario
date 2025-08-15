@@ -156,6 +156,8 @@ class ItemListCreateView(generics.ListCreateAPIView):
     serializer_class = ItemSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+
     search_fields = ['sku', 'name', 'brand', 'supplier__name']
     ordering_fields = ['name', 'sku', 'sale_price', 'purchase_price', 'total_quantity']
     filterset_fields = {
