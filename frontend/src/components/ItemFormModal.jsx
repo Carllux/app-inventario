@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import classNames from 'classnames'; // Importe a biblioteca
 import styles from './ItemFormModal.module.css';
+import { createItem } from '../services/itemService';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
@@ -16,6 +17,7 @@ function ItemFormModal({ isOpen, onClose, onSuccess }) {
   const [suppliers, setSuppliers] = useState([]);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // Adicione para feedback no botão
 
   useEffect(() => {
     if (isOpen) {
@@ -43,10 +45,20 @@ function ItemFormModal({ isOpen, onClose, onSuccess }) {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e) => {
+ const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Enviando dados do item:", formData);
-    // onSuccess();
+    setError('');
+    setIsSubmitting(true);
+    try {
+      // 2. Chama a função do nosso novo serviço
+      await createItem(formData);
+      onSuccess(); // Avisa a página pai que a criação foi um sucesso
+      onClose();   // Fecha o modal
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -122,7 +134,9 @@ function ItemFormModal({ isOpen, onClose, onSuccess }) {
             
             <div className={styles.formActions}>
               <button type="button" className="button button-outline" onClick={onClose}>Cancelar</button>
-              <button type="submit" className="button button-primary">Salvar Item</button>
+              <button type="submit" className="button button-primary" disabled={isSubmitting}>
+                   {isSubmitting ? 'Salvando...' : 'Salvar Item'}
+              </button>
             </div>
           </form>
         )}
