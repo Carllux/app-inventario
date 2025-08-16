@@ -2,6 +2,13 @@
 
 :root {
 
+  --z-index-dropdown: 1000;
+  --z-index-sticky: 1020;
+  --z-index-fixed: 1030;
+  --z-index-modal: 1040;
+  --z-index-popover: 1050;
+  --z-index-tooltip: 1060;
+
   /* Espaçamento */
   --space-xs: 0.25rem;
   --space-sm: 0.5rem;
@@ -320,4 +327,14 @@ input:disabled, textarea:disabled, select:disabled {
   .mb-1-mobile { margin-bottom: var(--space-xs); }
   .mb-2-mobile { margin-bottom: var(--space-sm); }
   /* ... */
+}
+
+.tooltip {
+  position: relative;
+}
+
+.tooltip:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  /* ... estilos do tooltip ... */
 }

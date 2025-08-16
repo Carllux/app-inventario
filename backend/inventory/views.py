@@ -181,8 +181,9 @@ class ItemListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        queryset = Item.objects.all().select_related('category', 'supplier').prefetch_related('stock_items__location__branch')
-
+        queryset = Item.objects.filter(status='ACTIVE') \
+                           .select_related('category', 'supplier') \
+                           .prefetch_related('stock_items__location__branch')
         # 1. Filtro de segurança por filial (para não-admins)
         if not (user.is_staff or user.is_superuser):
             try:
@@ -319,6 +320,11 @@ class ItemDetailView(generics.RetrieveUpdateDestroyAPIView):
         read_serializer = ItemSerializer(write_serializer.instance)
         
         return Response(read_serializer.data)
+    
+    def perform_destroy(self, instance):
+        """Executa um 'soft delete' em vez de deletar o objeto."""
+        instance.status = Item.StatusChoices.INACTIVE
+        instance.save()
     
 
 # Em backend/inventory/views.py

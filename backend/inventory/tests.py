@@ -445,17 +445,6 @@ class ItemDetailAPITests(APITestCase):
         # Verifica se a mudança foi salva no banco de dados
         self.item_sp.refresh_from_db()
         self.assertEqual(self.item_sp.name, 'Nome do Item Atualizado')
-        
-    def test_delete_item_success(self):
-        """Verifica se um usuário pode deletar um item da sua filial."""
-        self.client.force_authenticate(user=self.user_sp)
-        response = self.client.delete(f'/api/items/{self.item_sp.pk}/')
-        
-        # Deleção bem-sucedida retorna 204 No Content
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        
-        # Verifica se o item foi realmente removido do banco de dados
-        self.assertFalse(Item.objects.filter(pk=self.item_sp.pk).exists())
 
     def test_unauthenticated_user_cannot_delete_item(self):
         """Verifica se um usuário não autenticado não pode deletar um item."""
@@ -498,3 +487,17 @@ class ItemDetailAPITests(APITestCase):
         """Verifica se um usuário não autenticado é bloqueado."""
         response = self.client.get(f'/api/items/{self.item_sp.pk}/stock/')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_delete_item_success(self):
+        """Verifica se um usuário pode 'deletar' (inativar) um item da sua filial."""
+        self.client.force_authenticate(user=self.user_sp)
+        response = self.client.delete(f'/api/items/{self.item_sp.pk}/')
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        # ✅ A VERIFICAÇÃO MUDOU
+        # Verificamos se o item ainda existe
+        self.assertTrue(Item.objects.filter(pk=self.item_sp.pk).exists())
+        # E se o status dele foi alterado para INACTIVE
+        self.item_sp.refresh_from_db()
+        self.assertEqual(self.item_sp.status, Item.StatusChoices.INACTIVE)

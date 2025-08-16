@@ -1,0 +1,35 @@
+.backdrop {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: var(--z-index-modal);
+}
+.content {
+  width: 100%;
+  max-width: 450px;
+  padding: var(--space-lg);
+  text-align: center;
+}
+.header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+.icon {
+  color: var(--color-danger);
+}
+.body {
+  margin-bottom: var(--space-lg);
+  color: var(--color-text-muted);
+}
+.actions {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-md);
+}

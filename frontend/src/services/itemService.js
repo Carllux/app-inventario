@@ -68,4 +68,17 @@ export const getItemStockDistribution = async (itemId) => {
   }
 };
 
-// Futuramente, podemos adicionar aqui a deleteItem, etc.
+/**
+ * Envia uma requisição para deletar (inativar) um item.
+ * @param {number} itemId - O ID do item a ser deletado.
+ * @returns {Promise<number>} O status da resposta (geralmente 204).
+ */
+export const deleteItem = async (itemId) => {
+  try {
+    const response = await axios.delete(`${API_URL}/api/items/${itemId}/`);
+    return response.status;
+  } catch (error) {
+    console.error(`Erro ao deletar o item ${itemId}:`, error.response?.data);
+    throw new Error('Não foi possível deletar o item.');
+  }
+};
