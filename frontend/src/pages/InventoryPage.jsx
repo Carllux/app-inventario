@@ -28,19 +28,25 @@ function InventoryPage() {
   const [editingItemId, setEditingItemId] = useState(null);
 
   // Busca os itens com paginação
-  const fetchItems = useCallback(async () => {
+  const fetchItems = useCallback(async (currentPage = 1) => {
     const controller = new AbortController();
     try {
       setIsLoading(true);
       setError(null);
-      // Sempre busca a página 1 ao recarregar
-      const response = await axios.get(`${API_URL}/api/items/?page=1`, {
+      const response = await axios.get(`${API_URL}/api/items/?page=${currentPage}`, {
         signal: controller.signal,
       });
-      setItems(response.data.results || []);
+      
+      // Se for a página 1, substitui os itens
+      if (currentPage === 1) {
+        setItems(response.data.results || []);
+      } else {
+        // Se for outra página, adiciona aos itens existentes
+        setItems(prevItems => [...prevItems, ...(response.data.results || [])]);
+      }
+      
       setTotalItems(response.data.count || 0);
       setHasNextPage(response.data.next !== null);
-      setPage(1); // Reseta a página para 1
     } catch (err) {
       if (!axios.isCancel(err)) {
         setError("Falha ao carregar os itens.");
@@ -49,11 +55,12 @@ function InventoryPage() {
       setIsLoading(false);
     }
     return () => controller.abort();
-  }, [refreshKey]);
+  }, []);
 
+  // Carrega os itens quando a página ou refreshKey muda
   useEffect(() => {
-    fetchItems();
-  }, [fetchItems]);
+    fetchItems(page);
+  }, [page, refreshKey, fetchItems]);
 
   // Handlers para modais
   const handleOpenMovementModal = useCallback((item = null) => {
@@ -82,10 +89,10 @@ function InventoryPage() {
 
   // Handler para carregar mais itens
   const handleLoadMore = useCallback(() => {
-    if (hasNextPage) {
+    if (hasNextPage && !isLoading) {
       setPage((prevPage) => prevPage + 1);
     }
-  }, [hasNextPage]);
+  }, [hasNextPage, isLoading]);
 
   // fluxo de deleção
   const handleOpenDeleteModal = (item) => {
