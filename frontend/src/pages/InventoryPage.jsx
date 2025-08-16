@@ -1,137 +1,126 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import ItemCard from '../components/ItemCard';
 import MovementFormModal from '../components/MovementFormModal';
 import ItemFormModal from '../components/ItemFormModal';
+import Spinner from '../components/Spinner';
 import styles from './InventoryPage.module.css';
-import SkeletonCard from '../components/SkeletonCard';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
 function InventoryPage() {
+  // Estados da página
   const [items, setItems] = useState([]);
+  const [totalItems, setTotalItems] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
+  const [hasNextPage, setHasNextPage] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Estados para os modais
+  // Estados dos modais
   const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
   const [selectedItemForMovement, setSelectedItemForMovement] = useState(null);
   const [isItemModalOpen, setIsItemModalOpen] = useState(false);
   const [editingItemId, setEditingItemId] = useState(null);
 
-  useEffect(() => {
+  // Busca os itens com paginação
+  const fetchItems = useCallback(async () => {
     const controller = new AbortController();
     
-    const fetchItems = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        const response = await axios.get(`${API_URL}/api/items/`, {
-          signal: controller.signal,
-        });
-        setItems(response.data.results || response.data);
-      } catch (err) {
-        if (!axios.isCancel(err)) {
-          setError('Falha ao carregar os itens. Tente novamente mais tarde.');
-          console.error('Erro ao buscar itens:', err);
-        }
-      } finally {
-        setIsLoading(false);
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await axios.get(`${API_URL}/api/items/?page=${page}`, {
+        signal: controller.signal,
+      });
+      
+      const newItems = response.data.results || [];
+      
+      // Se for a primeira página, substitui a lista. Senão, concatena.
+      setItems(prevItems => (page === 1 ? newItems : [...prevItems, ...newItems]));
+      setTotalItems(response.data.count || 0);
+      setHasNextPage(response.data.next !== null);
+      
+    } catch (err) {
+      if (!axios.isCancel(err)) {
+        setError('Falha ao carregar os itens. Tente novamente mais tarde.');
+        console.error('Erro ao buscar itens:', err);
       }
-    };
-
-    fetchItems();
+    } finally {
+      setIsLoading(false);
+    }
+    
     return () => controller.abort();
-  }, [refreshKey]);
+  }, [page, refreshKey]);
+
+  useEffect(() => {
+    fetchItems();
+  }, [fetchItems]);
 
   // Handlers para modais
-  const handleOpenMovementModal = (item = null) => {
+  const handleOpenMovementModal = useCallback((item = null) => {
     setSelectedItemForMovement(item);
     setIsMovementModalOpen(true);
-  };
+  }, []);
 
-  const handleOpenCreateItemModal = () => {
+  const handleOpenCreateItemModal = useCallback(() => {
     setEditingItemId(null);
     setIsItemModalOpen(true);
-  };
+  }, []);
 
-  const handleOpenEditItemModal = (item) => {
+  const handleOpenEditItemModal = useCallback((item) => {
     setEditingItemId(item.id);
     setIsItemModalOpen(true);
-  };
+  }, []);
 
-  const handleFormSuccess = () => {
+  // Handler de sucesso simplificado
+  const handleFormSuccess = useCallback(() => {
     setIsItemModalOpen(false);
     setIsMovementModalOpen(false);
-    setEditingItemId(null);
-    setSelectedItemForMovement(null);
-    setRefreshKey(oldKey => oldKey + 1);
-  };
+    
+    // Limpa a lista e volta para a página 1
+    setItems([]);
+    setPage(1);
+  }, []);
+
+  // Handler para carregar mais itens
+  const handleLoadMore = useCallback(() => {
+    if (hasNextPage) {
+      setPage(prevPage => prevPage + 1);
+    }
+  }, [hasNextPage]);
 
   // Renderização condicional
-  if (isLoading) {
-    return (
-      <div className={styles.pageContent}>
-        <div className={styles.pageHeader}>
-          <h1>Itens do Inventário</h1>
-          <div className={styles.headerActions}>
-            <button className="button button-primary" disabled>
-              + Adicionar Item
-            </button>
-            <button className="button button-success" disabled>
-              + Adicionar Movimentação
-            </button>
-          </div>
+  const renderContent = () => {
+    if (isLoading && page === 1) {
+      return (
+        <div className={styles.loadingContainer}>
+          <Spinner size="large" />
+          <p className={styles.loadingText}>Carregando catálogo...</p>
         </div>
-        <p className="text-muted">Carregando catálogo...</p>
-        <hr />
-        <div className={styles.itemList}>
-          {[...Array(8)].map((_, index) => (
-            <SkeletonCard key={`skeleton-${index}`} />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className={styles.pageContent}>
-        <div className={styles.pageHeader}>
-          <h1>Itens do Inventário</h1>
-        </div>
-        <p className={`${styles.statusMessage} ${styles.error}`}>{error}</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className={styles.pageContent}>
-      <div className={styles.pageHeader}>
-        <h1>Itens do Inventário</h1>
-        <div className={styles.headerActions}>
+      );
+    }
+    if (error) {
+      return (
+        <div className={styles.errorContainer}>
+          <p className={styles.errorText}>{error}</p>
           <button 
-            className="button button-primary" 
-            onClick={handleOpenCreateItemModal}
+            className="button button-primary"
+            onClick={() => {
+              setPage(1);
+              setRefreshKey(old => old + 1);
+            }}
           >
-            + Adicionar Item
-          </button>
-          <button 
-            className="button button-success" 
-            onClick={() => handleOpenMovementModal()}
-          >
-            + Adicionar Movimentação
+            Tentar Novamente
           </button>
         </div>
-      </div>
-      
-      <p className="text-muted">Total de itens: {items.length}</p>
-      <hr />
-      
-      {items.length === 0 ? (
+      );
+    }
+    if (items.length === 0) {
+      return (
         <div className={styles.emptyState}>
-          <p className={styles.statusMessage}>Nenhum item encontrado.</p>
+          <p className={styles.emptyStateText}>Nenhum item encontrado.</p>
           <button 
             className="button button-primary"
             onClick={handleOpenCreateItemModal}
@@ -139,18 +128,69 @@ function InventoryPage() {
             Adicionar Primeiro Item
           </button>
         </div>
-      ) : (
+      );
+    }
+    return (
+      <>
         <div className={styles.itemList}>
           {items.map(item => (
             <ItemCard 
               key={`item-${item.id}`}
               item={item} 
-              onAddMovement={() => handleOpenMovementModal(item)}
-              onEdit={() => handleOpenEditItemModal(item)}
+              onAddMovement={handleOpenMovementModal}
+              onEdit={handleOpenEditItemModal}
             />
           ))}
         </div>
-      )}
+        {hasNextPage && (
+          <div className={styles.loadMoreContainer}>
+            <button 
+              className="button button-outline"
+              onClick={handleLoadMore}
+              disabled={isLoading}
+            >
+              {isLoading ? 'Carregando...' : 'Carregar Mais Itens'}
+            </button>
+          </div>
+        )}
+      </>
+    );
+  };
+
+  return (
+    <div className={styles.pageContent}>
+      {/* Cabeçalho */}
+      <div className={styles.pageHeader}>
+        <h1>Itens do Inventário</h1>
+        <div className={styles.headerActions}>
+          <button 
+            className="button button-primary" 
+            onClick={handleOpenCreateItemModal}
+            disabled={isLoading}
+          >
+            + Adicionar Item
+          </button>
+          <button 
+            className="button button-success" 
+            onClick={() => handleOpenMovementModal()}
+            disabled={isLoading}
+          >
+            + Adicionar Movimentação
+          </button>
+        </div>
+      </div>
+
+      {/* Contador de itens */}
+      <p className={styles.itemsCount}>
+        {isLoading && page === 1 
+          ? 'Carregando catálogo...' 
+          : `Exibindo ${items.length} de ${totalItems} itens no catálogo.`
+        }
+      </p>
+      <hr className={styles.divider} />
+      
+      {/* Conteúdo principal */}
+      {renderContent()}
 
       {/* Modais */}
       <MovementFormModal 

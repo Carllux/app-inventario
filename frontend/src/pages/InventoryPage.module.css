@@ -29,6 +29,22 @@
   gap: var(--space-sm);
 }
 
+.contentSection {
+  margin-top: 1.5rem;
+}
+
+.itemsCount {
+  color: var(--color-text-muted);
+  margin-bottom: 1rem;
+}
+
+.divider {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 1rem 0;
+}
+
+
 .emptyState {
   display: flex;
   flex-direction: column;
@@ -37,6 +53,64 @@
   margin-top: var(--space-xl);
 }
 
+.emptyStateText {
+  color: var(--color-text-muted);
+  font-size: 1.1rem;
+}
+
 .error {
   color: var(--color-error);
+}
+
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 2rem;
+  min-height: 300px;
+}
+
+.loadingText {
+  color: var(--color-text-muted);
+  font-size: 1.1rem;
+}
+
+.errorContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 2rem;
+  text-align: center;
+}
+
+.errorText {
+  color: var(--color-error);
+  font-size: 1.1rem;
+}
+
+.centeredMessage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--space-xl) 0;
+  gap: var(--space-md);
+  min-height: 300px;
+  color: var(--color-text-muted);
+}
+
+.errorText {
+  color: var(--color-danger);
+  font-weight: 500;
+}
+
+.loadMoreContainer {
+  display: flex;
+  justify-content: center;
+  margin-top: 2rem;
+  padding: 1rem;
 }
