@@ -1,135 +1,123 @@
-/* frontend/src/pages/ItemDetailPage.module.css */
+/* ItemDetailPage.module.css */
 
 .page {
-  /* O padding principal já vem do layout geral (.main-content) */
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+  padding: var(--space-lg);
+  max-width: 1440px;
+  margin: 0 auto;
 }
 
 .header {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--space-lg);
-  padding-bottom: var(--space-lg);
+  align-items: flex-start;
+  gap: var(--space-md);
+  margin-bottom: var(--space-xl);
+  padding-bottom: var(--space-md);
   border-bottom: 1px solid var(--color-border);
 }
 
 .headerInfo {
   display: flex;
-  align-items: center;
-  gap: var(--space-lg);
+  flex-direction: column;
+  gap: var(--space-sm);
+  flex: 1;
+  min-width: min(100%, 400px);
 }
 
-.headerInfo h1 {
+.itemTitle h1 {
   margin: 0;
-  line-height: 1.2;
   font-size: var(--text-xl);
+  color: var(--color-text);
+  line-height: 1.3;
+}
+
+.headerActions {
+  display: flex;
+  gap: var(--space-sm);
+  align-self: flex-end;
+}
+
+.mainContent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
 }
 
 .topGrid {
   display: grid;
-  grid-template-columns: 1fr 1fr; /* Duas colunas de tamanho igual */
-  gap: var(--space-lg);
-  align-items: flex-start;
-  margin-bottom: var(--space-lg);
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--space-xl);
+  align-items: start;
 }
 
-.imageCard {
-  padding: 0; /* Remove o padding do card para a imagem preencher */
-  position: sticky;
-  top: calc(65px + var(--space-lg)); /* Considera a altura do Navbar */
-}
-
-.itemImage {
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
-  display: block;
-}
-
-.imagePlaceholder {
-  width: 100%;
-  aspect-ratio: 4 / 3;
+.bottomGrid {
   display: flex;
-  justify-content: center;
-  align-items: center;
-  background-color: var(--color-light);
-  color: var(--color-text-muted);
-  font-weight: 500;
+  flex-direction: column;
+  gap: var(--space-xl);
 }
 
+/* Image Card Styles */
+.imageCard {
+  position: sticky;
+  top: calc(65px + var(--space-lg));
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  height: fit-content;
+}
+
+/* Details Sidebar */
 .detailsSidebar {
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
-}
-
-/* Layout para os cards de baixo */
-.bottomGrid {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-lg);
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: 2fr 1fr; /* Coluna da esquerda 2x maior que a da direita */
-  gap: var(--space-lg);
-  align-items: flex-start; /* Alinha os cards no topo */
-  margin-bottom: var(--space-lg);
-}
-
-.mainColumn, .sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-lg);
-}
-
-.sidebar {
   position: sticky;
-  /* Gruda abaixo do Navbar (65px) com um espaçamento */
   top: calc(65px + var(--space-lg));
 }
 
-.itemImage {
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
-  display: block;
+/* Description Text */
+.descriptionText {
+  white-space: pre-line;
+  line-height: 1.6;
 }
 
-.imagePlaceholder {
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background-color: var(--color-light);
-  color: var(--color-text-muted);
-  font-weight: 500;
+/* Stock Section */
+.stockCard {
+  overflow: hidden;
 }
 
-.stockTableContainer {
-  max-height: 400px;
-  overflow-y: auto;
+/* Responsividade */
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    gap: var(--space-md);
+  }
+  
+  .headerActions {
+    align-self: stretch;
+    justify-content: flex-end;
+  }
+  
+  .topGrid {
+    grid-template-columns: 1fr;
+  }
+  
+  .imageCard,
+  .detailsSidebar {
+    position: static;
+  }
 }
 
-.stockTable {
-  width: 100%;
-  border-collapse: collapse;
+/* Animation */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-.stockTable th, .stockTable td {
-  padding: var(--space-sm) var(--space-md);
-  text-align: left;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.stockTable thead th {
-  font-weight: 600;
-  color: var(--color-text-muted);
-  font-size: var(--text-sm);
-}
-
-.stockTable tbody tr:last-child td {
-  border-bottom: none;
+.page {
+  animation: fadeIn 0.3s ease-out;
 }

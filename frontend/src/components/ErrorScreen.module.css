@@ -1,0 +1,34 @@
+/* ErrorScreen.module.css */
+.errorContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 50vh;
+  padding: var(--space-xl);
+}
+
+.errorContent {
+  text-align: center;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.errorIcon {
+  width: 48px;
+  height: 48px;
+  color: var(--color-danger);
+}
+
+.errorTitle {
+  color: var(--color-danger);
+  font-size: var(--text-xl);
+  margin: 0;
+}
+
+.errorMessage {
+  color: var(--color-text);
+  margin-bottom: var(--space-md);
+}

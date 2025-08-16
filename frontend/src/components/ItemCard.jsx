@@ -17,7 +17,7 @@ function ItemCard({ item, onAddMovement, onEdit, onDelete }) {
   return (
     <div className={cardClasses}>
       {/* Link envolve a área principal do card para navegação */}
-      <Link to={`/inventory/${item.id}`} className={styles.clickableArea}>
+      <Link to={`/inventory/${item.id}`} state={{ item: item }}   className={styles.clickableArea}>
         {item.is_low_stock && <div className={styles.lowStockAlert}>ESTOQUE BAIXO</div>}
 
         {item.photo ? (

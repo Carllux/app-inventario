@@ -1,0 +1,34 @@
+/* NotFoundScreen.module.css */
+.notFoundContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 50vh;
+  padding: var(--space-xl);
+}
+
+.notFoundContent {
+  text-align: center;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.notFoundIcon {
+  width: 48px;
+  height: 48px;
+  color: var(--color-text-muted);
+}
+
+.notFoundTitle {
+  color: var(--color-text);
+  font-size: var(--text-xl);
+  margin: 0;
+}
+
+.notFoundMessage {
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-md);
+}
