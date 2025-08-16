@@ -22,17 +22,23 @@
   --text-base: 1rem;
   --text-lg: 1.125rem;
   --text-xl: 1.25rem;
+  --text-xxl: 1.75rem;
 
   /* Outros */
   --border-radius: 0.25rem;
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
   --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
   --transition: 0.2s ease;
+  --modal-max-width: 50rem; /* 800px */
+  --photo-preview-size: 16rem; /* Tamanho da prévia da foto */
+  --transition-duration: 0.3s;
 }
 
 
 body.light-theme {
   /* Cores */
+  --color-background-light: rgba(0, 0, 0, 0.05);
+  --color-background-light-hover: rgba(0, 0, 0, 0.1);
   --color-primary: #007bff;
   --color-primary-dark: #0056b3;
   --color-success: #28a745;
@@ -50,6 +56,8 @@ body.light-theme {
 
 /* TEMA ESCURO */
 body.dark-theme {
+  --color-background-light: rgba(255, 255, 255, 0.05);
+  --color-background-light-hover: rgba(255, 255, 255, 0.1);
   --color-primary: #3a9cff;
   --color-primary-dark: #1a7cdf;
   --color-success: #34c759;
@@ -313,6 +321,75 @@ input:disabled, textarea:disabled, select:disabled {
   display: block;
   margin-bottom: var(--space-xs);
   font-weight: 600;
+}
+
+/* Estilos para grupos de formulário com labels flutuantes */
+.floating-label-group {
+  position: relative;
+  margin-bottom: var(--space-md);
+}
+
+.floating-label {
+  position: absolute;
+  left: var(--space-sm);
+  top: var(--space-sm);
+  padding: 0 var(--space-xs);
+  background-color: var(--color-white);
+  transition: all var(--transition);
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.floating-label-group input:focus + .floating-label,
+.floating-label-group input:not(:placeholder-shown) + .floating-label {
+  top: -0.5rem;
+  left: var(--space-sm);
+  font-size: var(--text-xs);
+  color: var(--color-primary);
+}
+
+/* Estilos para upload de arquivo melhorado */
+.file-upload-wrapper {
+  position: relative;
+  overflow: hidden;
+  display: inline-block;
+}
+
+.file-upload-button {
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  padding: var(--space-sm) var(--space-md);
+  background-color: var(--color-light);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.file-upload-button:hover {
+  background-color: var(--color-light-hover);
+}
+
+.file-upload-wrapper input[type="file"] {
+  position: absolute;
+  left: 0;
+  top: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+
+/* Classes utilitárias adicionais */
+.aspect-ratio-square {
+  aspect-ratio: 1/1;
+}
+
+.object-fit-contain {
+  object-fit: contain;
+}
+
+.object-fit-cover {
+  object-fit: cover;
 }
 
 /* --- Utilitários Adicionais --- */

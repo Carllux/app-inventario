@@ -12,17 +12,17 @@
   align-items: center;
   z-index: var(--z-index-modal, 1000);
   opacity: 0;
-  animation: fadeIn 0.3s forwards;
+  animation: fadeIn var(--transition-duration) forwards;
 }
 
 .content {
-  width: 100%;
-  max-width: 800px; /* Um modal mais largo para o formulário */
+  width: 90%;
+  max-width: var(--modal-max-width, 50rem); /* Usando rem */
   position: relative;
-  padding: 0; /* O padding será interno */
+  padding: 0;
   transform: scale(0.95);
   opacity: 0;
-  animation: fadeInScaleUp 0.3s 0.1s forwards;
+  animation: fadeInScaleUp var(--transition-duration) 0.1s forwards;
 }
 
 .header {
@@ -41,19 +41,20 @@
 .closeButton {
   background: none;
   border: none;
-  font-size: 1.75rem;
+  font-size: var(--text-xxl); /* Usando variável de tamanho */
   cursor: pointer;
   color: var(--color-text-muted);
   line-height: 1;
-  transition: transform var(--transition);
+  transition: transform var(--transition-duration);
 }
+
 .closeButton:hover {
   transform: scale(1.1) rotate(90deg);
 }
 
 .form {
   padding: var(--space-lg);
-  max-height: 70vh; /* Permite rolagem em telas pequenas */
+  max-height: 70vh;
   overflow-y: auto;
 }
 
@@ -71,6 +72,7 @@ fieldset {
   padding: 0;
   margin: 0 0 var(--space-lg) 0;
 }
+
 fieldset:last-of-type {
   margin-bottom: 0;
 }
@@ -86,8 +88,7 @@ legend {
 
 .formRow {
   display: grid;
-  /* Cria colunas responsivas automaticamente */
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
   gap: var(--space-md);
 }
 
@@ -98,6 +99,64 @@ legend {
   margin-top: var(--space-lg);
   padding-top: var(--space-lg);
   border-top: 1px solid var(--color-border);
+}
+
+/* Seção de Foto */
+.photoSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.photoPreview {
+  width: 100%;
+  max-width: 16rem; /* 16rem = 256px (se root font-size for 16px) */
+  aspect-ratio: 1/1; /* Mantém proporção quadrada */
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-background-light);
+  margin: 0 auto;
+}
+
+.photoImage {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Input de arquivo */
+.form-group input[type="file"] {
+  width: 100%;
+  padding: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  background-color: var(--color-background-light);
+  cursor: pointer;
+}
+
+.form-group input[type="file"]:hover {
+  border-color: var(--color-primary);
+}
+
+/* Grupos de formulário */
+.form-group {
+  margin-bottom: var(--space-md);
+}
+
+.form-group:last-child {
+  margin-bottom: 0;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: var(--space-xs);
+  font-weight: 500;
+  color: var(--color-text);
 }
 
 /* Animações */
