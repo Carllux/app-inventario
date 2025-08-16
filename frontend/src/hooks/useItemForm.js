@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { createItem, updateItem, getItemById } from '../services/itemService';
+import { toast } from 'react-hot-toast'; 
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
@@ -24,6 +25,7 @@ const createInitialFormState = () => ({
   weight: '',
   origin: '',
   cfop: '',
+  ean: '',
   // Adicione aqui quaisquer outros campos do formulário
 });
 
@@ -109,38 +111,46 @@ export function useItemForm(isOpen, itemId, onSuccess) {
     }
   }, []);
 
-  const handleSubmit = useCallback((onSuccess, onClose) => async (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setError('');
+const handleSubmit = useCallback((onSuccess, onClose) => async (e) => {
+  e.preventDefault();
+  setIsSubmitting(true);
+  setError('');
 
-    try {
-      const formDataToSend = new FormData();
-      Object.entries(formData).forEach(([key, value]) => {
-        // Envia o campo apenas se não for nulo ou indefinido
-        if (value !== null && value !== undefined && value !== '') {
-          formDataToSend.append(key, value);
-        }
-      });
-      if (photo) {
-        formDataToSend.append('photo', photo);
+  try {
+    const formDataToSend = new FormData();
+    
+    // Adiciona todos os campos do formulário ao FormData
+    Object.entries(formData).forEach(([key, value]) => {
+      // Envia o campo apenas se não for nulo, indefinido ou uma string vazia
+      if (value !== null && value !== undefined && value !== '') {
+        formDataToSend.append(key, value);
       }
+    });
 
-      if (isEditMode) {
-        await updateItem(itemId, formDataToSend);
-      } else {
-        await createItem(formDataToSend);
-      }
-      
-      onSuccess(); // Chama o callback de sucesso da página
-      onClose();   // Chama o callback para fechar o modal
-      
-    } catch (err) {
-      setError(err.message || "Erro ao salvar o item");
-    } finally {
-      setIsSubmitting(false);
+    // ✅ CORREÇÃO: Adiciona a foto (se uma nova foi selecionada)
+    if (photo) {
+      formDataToSend.append('photo', photo);
     }
-  }, [formData, photo, isEditMode, itemId]); // onSuccess e onClose saem das dependências
+
+    let savedItem;
+    if (isEditMode) {
+      savedItem = await updateItem(itemId, formDataToSend);
+      toast.success(`Item "${savedItem.name}" atualizado com sucesso!`);
+    } else {
+      savedItem = await createItem(formDataToSend);
+      toast.success(`Item "${savedItem.name}" criado com sucesso!`);
+    }
+    
+    onSuccess();
+    onClose();
+    
+  } catch (err) {
+    setError(err.message || "Erro ao salvar o item");
+    toast.error(err.message || "Ocorreu um erro ao salvar.");
+  } finally {
+    setIsSubmitting(false);
+  }
+}, [formData, photo, isEditMode, itemId]);// onSuccess e onClose saem das dependências
 
 
   return {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import toast from 'react-hot-toast'; // ✅ IMPORTE AQUI
 import axios from "axios";
 import ItemCard from "../components/ItemCard";
 import MovementFormModal from "../components/MovementFormModal";
@@ -103,18 +104,25 @@ function InventoryPage() {
     setDeleteTarget(null);
   };
 
-  const handleConfirmDelete = async () => {
+  const handleConfirmDelete = useCallback(async () => {
     if (!deleteTarget) return;
-
+    
     try {
       await deleteItem(deleteTarget.id);
+      
+      // ✅ NOTIFICAÇÃO DE SUCESSO
+      toast.success(`Item "${deleteTarget.name}" inativado com sucesso.`);
+
       handleCloseDeleteModal();
-      setRefreshKey((oldKey) => oldKey + 1); // Atualiza a lista de itens
+      setRefreshKey(oldKey => oldKey + 1); // Atualiza a lista
     } catch (error) {
-      console.error(error); // Futuramente, um toast de erro
+      // ✅ NOTIFICAÇÃO DE ERRO
+      toast.error(error.message || "Não foi possível inativar o item.");
+      
+      console.error(error);
       handleCloseDeleteModal();
     }
-  };
+  }, [deleteTarget]);
 
   // Renderização condicional
   const renderContent = () => {

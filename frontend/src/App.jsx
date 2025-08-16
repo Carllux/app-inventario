@@ -8,10 +8,29 @@ import AuthenticatedLayout from './components/AuthenticatedLayout';
 import LoginPage from './pages/LoginPage';
 import InventoryPage from './pages/InventoryPage';
 import ItemDetailPage from './pages/ItemDetailPage';
+import { Toaster } from 'react-hot-toast'; 
 
 function App() {
   return (
     <BrowserRouter>
+      <Toaster 
+        position="top-right"
+        toastOptions={{
+          success: {
+            style: {
+              background: 'var(--color-success)',
+              color: 'var(--color-white)',
+            },
+          },
+          error: {
+            style: {
+              background: 'var(--color-danger)',
+              color: 'var(--color-white)',
+            },
+          },
+        }}
+      />
+
       <Routes>
         {/* Rota Pública */}
         <Route path="/login" element={<LoginPage />} />
