@@ -177,6 +177,7 @@ a:hover {
 /* Modificador de Estilo para Botões Vazados (Outline) */
 .button-outline {
   background-color: transparent;
+  color: var(--color-text);
 }
 
 .button-outline.button-primary {
