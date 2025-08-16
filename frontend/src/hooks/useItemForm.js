@@ -5,7 +5,7 @@ import { createItem, updateItem, getItemById } from '../services/itemService';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
-// ✅ FUNÇÃO GERADORA: Cria um objeto de formulário limpo e completo.
+// Função geradora: Cria um objeto de formulário limpo e completo
 const createInitialFormState = () => ({
   sku: '',
   name: '',
@@ -17,23 +17,37 @@ const createInitialFormState = () => ({
   sale_price: '0.00',
   unit_of_measure: 'Peça',
   minimum_stock_level: 10,
-  short_description: '', // Garante que todos os campos estejam presentes
+  short_description: '',
+  long_description: '',
+  internal_code: '',
+  manufacturer_code: '',
+  weight: '',
+  origin: '',
+  cfop: '',
   // Adicione aqui quaisquer outros campos do formulário
 });
 
 export function useItemForm(isOpen, itemId, onSuccess) {
-  // ✅ USA A FUNÇÃO GERADORA
   const [formData, setFormData] = useState(createInitialFormState());
   const [categories, setCategories] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [photo, setPhoto] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState('');
 
   const isEditMode = itemId != null;
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      // Limpa os estados quando o modal é fechado
+      setFormData(createInitialFormState());
+      setError('');
+      setPhoto(null);
+      setPhotoPreview('');
+      return;
+    }
 
     setIsLoading(true);
     setError('');
@@ -49,7 +63,7 @@ export function useItemForm(isOpen, itemId, onSuccess) {
 
         if (isEditMode) {
           const itemData = await getItemById(itemId);
-          // ✅ MAPEAMENTO DINÂMICO: Preenche o formulário apenas com as chaves que ele já conhece.
+          // Mapeamento dinâmico para preencher todos os campos
           const initialData = createInitialFormState();
           Object.keys(initialData).forEach(key => {
             if (key === 'category' || key === 'supplier') {
@@ -58,13 +72,18 @@ export function useItemForm(isOpen, itemId, onSuccess) {
               initialData[key] = itemData[key];
             }
           });
+          
           setFormData(initialData);
+          if (itemData.photo) {
+            setPhotoPreview(itemData.photo);
+          }
         } else {
           setFormData(createInitialFormState()); // Reseta para o estado limpo
         }
 
       } catch (err) {
         setError("Falha ao carregar dados para o formulário.");
+        console.error("Erro ao carregar dependências:", err);
       } finally {
         setIsLoading(false);
       }
@@ -72,34 +91,69 @@ export function useItemForm(isOpen, itemId, onSuccess) {
 
     fetchDependencies();
   }, [isOpen, itemId, isEditMode]);
-  
+
   const handleChange = useCallback((e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   }, []);
 
-  const handleSubmit = useCallback(async (e) => {
+  const handlePhotoChange = useCallback((e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setPhoto(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotoPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  }, []);
+
+  const handleSubmit = useCallback((onSuccess, onClose) => async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    console.log("2. Tentando enviar os seguintes dados:", formData); // PONTO DE DEBUG 2
-
     setError('');
+
     try {
-      if (isEditMode) {
-        await updateItem(itemId, formData);
-      } else {
-        await createItem(formData);
+      const formDataToSend = new FormData();
+      Object.entries(formData).forEach(([key, value]) => {
+        // Envia o campo apenas se não for nulo ou indefinido
+        if (value !== null && value !== undefined && value !== '') {
+          formDataToSend.append(key, value);
+        }
+      });
+      if (photo) {
+        formDataToSend.append('photo', photo);
       }
-      onSuccess();
+
+      if (isEditMode) {
+        await updateItem(itemId, formDataToSend);
+      } else {
+        await createItem(formDataToSend);
+      }
+      
+      onSuccess(); // Chama o callback de sucesso da página
+      onClose();   // Chama o callback para fechar o modal
+      
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "Erro ao salvar o item");
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData, isEditMode, itemId, onSuccess]);
+  }, [formData, photo, isEditMode, itemId]); // onSuccess e onClose saem das dependências
+
 
   return {
-    formData, error, isLoading, isSubmitting, categories, suppliers,
-    isEditMode, handleChange, handleSubmit
+    formData,
+    error,
+    isLoading,
+    isSubmitting,
+    categories,
+    suppliers,
+    isEditMode,
+    photoPreview,
+    handleChange,
+    handlePhotoChange,
+    handleSubmit
   };
 }

@@ -47,7 +47,7 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = ['id', 'name']
 
 class SupplierSerializer(serializers.ModelSerializer):
-    country = CountryField(name_only=True) # ✅ GARANTA QUE ESTA LINHA EXISTA
+    country = CountryField(name_only=True) 
 
     class Meta:
         model = Supplier
@@ -73,8 +73,8 @@ class ItemSerializer(serializers.ModelSerializer):
         model = Item
         # Lista explícita e completa de campos
         fields = [
-            'id', 'sku', 'name', 'status', 'category', 'supplier', 'photo', 
-            'brand', 'purchase_price', 'sale_price', 'unit_of_measure', 
+            'id', 'sku', 'name', 'status', 'category', 'supplier', 'photo', 'ean', 'weight',
+            'brand', 'purchase_price', 'sale_price', 'unit_of_measure', 'long_description',
             'origin', 'cfop', 'minimum_stock_level', 'total_quantity', 'is_low_stock', 'owner', 'short_description'
         ]
         extra_kwargs = {
