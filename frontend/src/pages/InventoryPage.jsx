@@ -1,11 +1,10 @@
-// frontend/src/pages/InventoryPage.jsx
-
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import ItemCard from '../components/ItemCard';
 import MovementFormModal from '../components/MovementFormModal';
 import ItemFormModal from '../components/ItemFormModal';
 import styles from './InventoryPage.module.css';
+import SkeletonCard from '../components/SkeletonCard';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
@@ -15,15 +14,15 @@ function InventoryPage() {
   const [error, setError] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Estados para controlar os dois modais
+  // Estados para os modais
   const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
   const [selectedItemForMovement, setSelectedItemForMovement] = useState(null);
-  
   const [isItemModalOpen, setIsItemModalOpen] = useState(false);
   const [editingItemId, setEditingItemId] = useState(null);
 
   useEffect(() => {
     const controller = new AbortController();
+    
     const fetchItems = async () => {
       try {
         setIsLoading(true);
@@ -34,57 +33,88 @@ function InventoryPage() {
         setItems(response.data.results || response.data);
       } catch (err) {
         if (!axios.isCancel(err)) {
-          setError('Sua sessão pode ter expirado ou falhou ao carregar os itens.');
-          console.error(err);
+          setError('Falha ao carregar os itens. Tente novamente mais tarde.');
+          console.error('Erro ao buscar itens:', err);
         }
       } finally {
         setIsLoading(false);
       }
     };
+
     fetchItems();
     return () => controller.abort();
   }, [refreshKey]);
 
-  // --- Handlers para o Modal de Movimentação ---
+  // Handlers para modais
   const handleOpenMovementModal = (item = null) => {
     setSelectedItemForMovement(item);
     setIsMovementModalOpen(true);
   };
 
-  // --- Handlers para o Modal de Item (Criar/Editar) ---
   const handleOpenCreateItemModal = () => {
-    setEditingItemId(null); // Assegura que estamos no modo de criação
+    setEditingItemId(null);
     setIsItemModalOpen(true);
   };
 
   const handleOpenEditItemModal = (item) => {
-    setEditingItemId(item.id); // Define o ID para o modo de edição
+    setEditingItemId(item.id);
     setIsItemModalOpen(true);
   };
 
-  // --- Handler de Sucesso Genérico ---
-  // Esta função é chamada por AMBOS os modais após sucesso
   const handleFormSuccess = () => {
     setIsItemModalOpen(false);
     setIsMovementModalOpen(false);
     setEditingItemId(null);
     setSelectedItemForMovement(null);
-    setRefreshKey(oldKey => oldKey + 1); // Força a atualização da lista
+    setRefreshKey(oldKey => oldKey + 1);
   };
 
+  // Renderização condicional
   if (isLoading) {
-    return <p className={styles.statusMessage}>Carregando itens...</p>;
+    return (
+      <div className={styles.pageContent}>
+        <div className={styles.pageHeader}>
+          <h1>Itens do Inventário</h1>
+          <div className={styles.headerActions}>
+            <button className="button button-primary" disabled>
+              + Adicionar Item
+            </button>
+            <button className="button button-success" disabled>
+              + Adicionar Movimentação
+            </button>
+          </div>
+        </div>
+        <p className="text-muted">Carregando catálogo...</p>
+        <hr />
+        <div className={styles.itemList}>
+          {[...Array(8)].map((_, index) => (
+            <SkeletonCard key={`skeleton-${index}`} />
+          ))}
+        </div>
+      </div>
+    );
   }
+
   if (error) {
-    return <p className={`${styles.statusMessage} ${styles.error}`}>Erro: {error}</p>;
+    return (
+      <div className={styles.pageContent}>
+        <div className={styles.pageHeader}>
+          <h1>Itens do Inventário</h1>
+        </div>
+        <p className={`${styles.statusMessage} ${styles.error}`}>{error}</p>
+      </div>
+    );
   }
-  
+
   return (
     <div className={styles.pageContent}>
       <div className={styles.pageHeader}>
         <h1>Itens do Inventário</h1>
         <div className={styles.headerActions}>
-          <button className="button button-primary" onClick={handleOpenCreateItemModal}>
+          <button 
+            className="button button-primary" 
+            onClick={handleOpenCreateItemModal}
+          >
             + Adicionar Item
           </button>
           <button 
@@ -95,25 +125,34 @@ function InventoryPage() {
           </button>
         </div>
       </div>
-      <p className="text-muted">Total de itens no catálogo: {items.length}</p>
+      
+      <p className="text-muted">Total de itens: {items.length}</p>
       <hr />
       
       {items.length === 0 ? (
-        <p className={styles.statusMessage}>Nenhum item encontrado.</p>
+        <div className={styles.emptyState}>
+          <p className={styles.statusMessage}>Nenhum item encontrado.</p>
+          <button 
+            className="button button-primary"
+            onClick={handleOpenCreateItemModal}
+          >
+            Adicionar Primeiro Item
+          </button>
+        </div>
       ) : (
         <div className={styles.itemList}>
           {items.map(item => (
             <ItemCard 
-              key={item.id} 
+              key={`item-${item.id}`}
               item={item} 
-              onAddMovement={handleOpenMovementModal}
-              onEdit={handleOpenEditItemModal} // Conectado corretamente
+              onAddMovement={() => handleOpenMovementModal(item)}
+              onEdit={() => handleOpenEditItemModal(item)}
             />
           ))}
         </div>
       )}
 
-      {/* Renderização dos Modais */}
+      {/* Modais */}
       <MovementFormModal 
         isOpen={isMovementModalOpen}
         onClose={() => setIsMovementModalOpen(false)}

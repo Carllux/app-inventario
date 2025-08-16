@@ -6,6 +6,10 @@ from django.db.models import Sum
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django_countries.fields import CountryField
+from PIL import Image as PilImage
+from io import BytesIO
+from django.core.files.base import ContentFile
+import os
 
 # --- 1. MODELOS DE ORGANIZAÇÃO, HIERARQUIA E PERMISSÃO ---
 
@@ -149,6 +153,50 @@ class Item(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
+
+    def save(self, *args, **kwargs):
+        # Verifica se uma nova foto foi enviada
+        if self.photo:
+            # 'self.pk is None' checa se é um objeto novo.
+            # Se não for novo, checamos se a foto foi alterada.
+            is_new = self.pk is None
+            if not is_new:
+                try:
+                    old_instance = Item.objects.get(pk=self.pk)
+                    if old_instance.photo == self.photo:
+                        # Se a foto for a mesma, não faz nada e salva normalmente
+                        super().save(*args, **kwargs)
+                        return
+                except Item.DoesNotExist:
+                    pass # Continua se a instância antiga não for encontrada
+
+            # --- INÍCIO DA LÓGICA DE OTIMIZAÇÃO ---
+            pil_image = PilImage.open(self.photo)
+
+            # 1. Redimensionar se for muito grande (ex: max 1024x1024)
+            max_width, max_height = 1024, 1024
+            if pil_image.width > max_width or pil_image.height > max_height:
+                pil_image.thumbnail((max_width, max_height))
+
+            # 2. Salvar em um buffer de memória no formato WebP com compressão
+            buffer = BytesIO()
+            pil_image.save(buffer, format='WEBP', quality=85)
+            buffer.seek(0)
+
+            # 3. Criar um novo nome de arquivo com a extensão .webp
+            file_name, _ = os.path.splitext(self.photo.name)
+            new_file_name = f"{file_name}.webp"
+
+            # 4. Substitui o arquivo original pelo arquivo otimizado
+            self.photo.save(
+                new_file_name,
+                ContentFile(buffer.read()),
+                save=False # Adia o 'save' do modelo para o final
+            )
+
+        # Chama o método .save() original para salvar o modelo no banco
+        super().save(*args, **kwargs)
+        
     @property
     def total_quantity(self):
         total = self.stock_items.aggregate(total=Sum('quantity'))['total']

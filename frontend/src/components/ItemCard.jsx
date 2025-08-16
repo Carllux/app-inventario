@@ -22,7 +22,7 @@ function ItemCard({ item, onAddMovement, onEdit, onDelete }) {
 
         {item.photo ? (
           <div className={styles.imageContainer}>
-            <img src={item.photo} alt={item.name} className={styles.image} />
+            <img src={item.photo} alt={item.name} className={styles.image} loading="lazy"/>
           </div>
         ) : (
           <div className={styles.imagePlaceholder}>

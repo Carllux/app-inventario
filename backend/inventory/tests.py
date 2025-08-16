@@ -1,6 +1,10 @@
 from rest_framework.test import APITestCase
 from rest_framework import status
 from django.contrib.auth.models import User
+from django.core.files.uploadedfile import SimpleUploadedFile
+from PIL import Image as PilImage
+from io import BytesIO
+
 from .models import (
     Branch,
     Category,
@@ -15,6 +19,51 @@ from .models import (
 
 import logging
 
+
+# ✅ NOVA SUÍTE DE TESTES PARA O MODELO ITEM
+class ItemModelTests(APITestCase):
+    
+    def setUp(self):
+        self.user = User.objects.create_user('test_model_user', 'model@test.com', 'password123')
+
+    def create_test_image(self, width=2000, height=2000, format='JPEG'):
+        """Cria uma imagem em memória para os testes."""
+        buffer = BytesIO()
+        image = PilImage.new('RGB', (width, height), 'white')
+        image.save(buffer, format=format)
+        buffer.seek(0)
+        # Converte para um formato que o Django entende
+        return SimpleUploadedFile(f"test_image.{format.lower()}", buffer.read(), content_type=f"image/{format.lower()}")
+
+    def test_image_is_optimized_on_save(self):
+        """
+        Verifica se uma imagem grande .jpg é redimensionada, convertida para .webp
+        e comprimida ao salvar o modelo Item.
+        """
+        # 1. Cria uma imagem grande em memória
+        large_image_file = self.create_test_image()
+        
+        # 2. Cria uma instância do Item com a imagem
+        item = Item.objects.create(
+            owner=self.user,
+            sku='SKU-IMG-TEST',
+            name='Item com Imagem Grande',
+            sale_price=100,
+            photo=large_image_file
+        )
+        
+        # 3. Verificações (Asserts)
+        self.assertIsNotNone(item.photo)
+        
+        # Verifica se o arquivo foi renomeado para .webp
+        self.assertTrue(item.photo.name.endswith('.webp'))
+        
+        # Abre a imagem que foi salva e verifica suas propriedades
+        saved_image = PilImage.open(item.photo.path)
+        self.assertEqual(saved_image.format, 'WEBP')
+        self.assertLessEqual(saved_image.width, 1024)
+        self.assertLessEqual(saved_image.height, 1024)
+        
 class ItemAPITests(APITestCase):
     """
     Suite de testes para o endpoint de listagem de Itens (/api/items/).

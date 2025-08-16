@@ -23,3 +23,20 @@
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: var(--space-lg);
 }
+
+.headerActions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+  margin-top: var(--space-xl);
+}
+
+.error {
+  color: var(--color-error);
+}
