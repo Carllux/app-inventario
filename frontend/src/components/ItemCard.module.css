@@ -45,6 +45,10 @@
   flex-grow: 1;
 }
 
+.content:hover .name {
+  color: var(--color-primary);
+}
+
 .category {
   font-size: 0.8rem;
   font-weight: 600;
@@ -66,16 +70,40 @@
 
 
 .actions {
-  padding: 1rem;
+  padding: var(--space-sm) var(--space-md);
   border-top: 1px solid var(--color-border);
   display: flex;
-  gap: 10px;
+  justify-content: space-between; /* Alinha os grupos de ações */
+  align-items: center;
+  gap: var(--space-sm);
 }
 
 .actions .button {
-  flex-grow: 1;
-  padding: 0.5rem; /* Botões menores dentro do card */
+  /* Remove flex-grow para que os botões tenham larguras diferentes */
+  padding: var(--space-md) var(--space-sm);
 }
+
+.actions .button-sm span {
+    display: inline; /* Garante que o texto apareça */
+}
+
+.secondaryActions {
+    display: flex;
+    gap: var(--space-sm);
+}
+
+/* Deixa o botão de deletar mais sutil */
+.actions .button-danger {
+    color: var(--color-text-muted);
+    border-color: var(--color-border);
+}
+
+.actions .button-danger:hover {
+    background-color: var(--color-danger);
+    border-color: var(--color-danger);
+    color: var(--color-white);
+}
+
 
 .detailsGrid {
   display: grid;
@@ -92,3 +120,13 @@
   margin-bottom: var(--space-md);
   min-height: 40px; /* Garante uma altura mínima para consistência visual */
 }
+
+/* Adicione estas classes ao seu ItemCard.module.css */
+
+.clickableArea {
+  text-decoration: none;
+  color: inherit;
+  display: block; /* Garante que o link ocupe o espaço */
+  cursor: pointer;
+}
+
