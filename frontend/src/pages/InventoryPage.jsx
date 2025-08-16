@@ -27,32 +27,26 @@ function InventoryPage() {
   // Busca os itens com paginação
   const fetchItems = useCallback(async () => {
     const controller = new AbortController();
-    
     try {
       setIsLoading(true);
       setError(null);
-      const response = await axios.get(`${API_URL}/api/items/?page=${page}`, {
+      // Sempre busca a página 1 ao recarregar
+      const response = await axios.get(`${API_URL}/api/items/?page=1`, {
         signal: controller.signal,
       });
-      
-      const newItems = response.data.results || [];
-      
-      // Se for a primeira página, substitui a lista. Senão, concatena.
-      setItems(prevItems => (page === 1 ? newItems : [...prevItems, ...newItems]));
+      setItems(response.data.results || []);
       setTotalItems(response.data.count || 0);
       setHasNextPage(response.data.next !== null);
-      
+      setPage(1); // Reseta a página para 1
     } catch (err) {
       if (!axios.isCancel(err)) {
-        setError('Falha ao carregar os itens. Tente novamente mais tarde.');
-        console.error('Erro ao buscar itens:', err);
+        setError('Falha ao carregar os itens.');
       }
     } finally {
       setIsLoading(false);
     }
-    
     return () => controller.abort();
-  }, [page, refreshKey]);
+  }, [refreshKey]); 
 
   useEffect(() => {
     fetchItems();
@@ -78,11 +72,11 @@ function InventoryPage() {
   const handleFormSuccess = useCallback(() => {
     setIsItemModalOpen(false);
     setIsMovementModalOpen(false);
-    
-    // Limpa a lista e volta para a página 1
-    setItems([]);
-    setPage(1);
+    // A única coisa que fazemos é mudar a refreshKey.
+    // Isso irá disparar o useEffect para buscar os dados frescos.
+    setRefreshKey(oldKey => oldKey + 1);
   }, []);
+
 
   // Handler para carregar mais itens
   const handleLoadMore = useCallback(() => {
