@@ -53,4 +53,19 @@ export const updateItem = async (itemId, itemData) => {
   }
 };
 
+/**
+ * Busca a distribuição de estoque de um item específico.
+ * @param {number} itemId - O ID do item.
+ * @returns {Promise<Array>} A lista de StockItems (estoque por local).
+ */
+export const getItemStockDistribution = async (itemId) => {
+  try {
+    const response = await axios.get(`${API_URL}/api/items/${itemId}/stock/`);
+    return response.data.results || response.data;
+  } catch (error) {
+    console.error(`Erro ao buscar distribuição de estoque para o item ${itemId}:`, error.response?.data);
+    throw new Error('Não foi possível carregar a distribuição de estoque.');
+  }
+};
+
 // Futuramente, podemos adicionar aqui a deleteItem, etc.

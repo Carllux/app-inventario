@@ -113,8 +113,17 @@ class Item(models.Model):
         DISCONTINUED = 'DISCONTINUED', 'Fora de Linha'
         INACTIVE = 'INACTIVE', 'Inativo'
     
+
     owner = models.ForeignKey(User, on_delete=models.CASCADE, help_text="Usuário que cadastrou o item.")
     sku = models.CharField(max_length=50, unique=True)
+    ean = models.CharField(
+        max_length=13, 
+        unique=True, 
+        blank=True, 
+        null=True,
+        verbose_name="EAN",
+        help_text="Código de barras EAN-13 (12 ou 13 dígitos)"
+    )
     name = models.CharField(max_length=100)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name='items')
     supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True, blank=True, related_name='supplied_items')

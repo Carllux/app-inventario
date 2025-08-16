@@ -7,6 +7,7 @@ import PrivateRoute from './components/PrivateRoute';
 import AuthenticatedLayout from './components/AuthenticatedLayout';
 import LoginPage from './pages/LoginPage';
 import InventoryPage from './pages/InventoryPage';
+import ItemDetailPage from './pages/ItemDetailPage';
 
 function App() {
   return (
@@ -20,6 +21,8 @@ function App() {
         <Route element={ <PrivateRoute><AuthenticatedLayout /></PrivateRoute> }>
           
           <Route path="/inventory" element={<InventoryPage />} />
+          <Route path="/inventory/:id" element={<ItemDetailPage />} />
+
           
           {/* Futuramente, adicione outras páginas privadas aqui. Ex: */}
           {/* <Route path="/dashboard" element={<DashboardPage />} /> */}
