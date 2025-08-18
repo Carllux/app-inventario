@@ -8,11 +8,9 @@ from simple_history.models import HistoricalRecords
 from stdnum.ean import is_valid
 from django.core.validators import MinValueValidator, RegexValidator
 from django_countries.fields import CountryField
-from PIL import Image as PilImage
-from io import BytesIO
-from django.core.files.base import ContentFile
-import os
-
+from decimal import Decimal
+from .utils import optimize_image
+ 
 class TimeStampedModel(models.Model):
     """
     Um modelo base abstrato que fornece os campos de auditoria
@@ -24,23 +22,109 @@ class TimeStampedModel(models.Model):
     class Meta:
         abstract = True
 
+class AuditMixin(models.Model):
+    """
+    Um mixin abstrato que adiciona campos para rastrear
+    quem criou e quem atualizou um objeto.
+    """
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='%(class)s_created', # Ex: 'item_created'
+        verbose_name="Criado por"
+    )
+    last_updated_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='%(class)s_updated', # Ex: 'item_updated'
+        verbose_name="Atualizado por"
+    )
+    class Meta:
+        abstract = True
+
+class AddressMixin(models.Model):
+    """Mixin abstrato para campos de endereço comuns."""
+    country = CountryField(default='BR', verbose_name="País")
+    postal_code = models.CharField(max_length=10, blank=True, verbose_name="CEP")
+    address_line_1 = models.CharField(max_length=255, blank=True, verbose_name="Endereço (Rua, Av.)")
+    address_line_2 = models.CharField(max_length=100, blank=True, verbose_name="Número e Complemento")
+    neighborhood = models.CharField(max_length=100, blank=True, verbose_name="Bairro")
+    city = models.CharField(max_length=100, blank=True, verbose_name="Cidade")
+    state = models.CharField(max_length=50, blank=True, verbose_name="Estado/Província")
+
+    class Meta:
+        abstract = True
+
+class IsActiveMixin(models.Model):
+    """Mixin abstrato que adiciona um campo 'is_active'."""
+    is_active = models.BooleanField(default=True, verbose_name="Ativo?")
+
+    class Meta:
+        abstract = True
+
+# backend/inventory/models.py
+
+class PhysicalPropertiesMixin(models.Model):
+    """
+    Mixin abstrato para propriedades físicas como dimensões e peso.
+    Inclui um método para calcular o volume cúbico.
+    """
+    height = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True, 
+        verbose_name="Altura (cm)"
+    )
+    width = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True, 
+        verbose_name="Largura (cm)"
+    )
+    depth = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True, 
+        verbose_name="Profundidade (cm)"
+    )
+    weight = models.DecimalField(
+        max_digits=10, decimal_places=3, null=True, blank=True,
+        verbose_name="Peso (kg)"
+    )
+
+    class Meta:
+        abstract = True
+
+    @property
+    def volume(self):
+        """
+        Calcula e retorna o volume em centímetros cúbicos (cm³).
+        Retorna 0 se alguma das dimensões não estiver definida.
+        """
+        if self.height and self.width and self.depth:
+            # Multiplicamos e garantimos que o resultado é um Decimal
+            return Decimal(self.height * self.width * self.depth)
+        return Decimal('0.00')
+
+    # Você também poderia adicionar outras propriedades úteis aqui, se necessário.
+    # Ex: @property def surface_area(self): ...
+
+class BaseModel(TimeStampedModel, AuditMixin, IsActiveMixin):
+    """Um modelo base que inclui timestamps, auditoria e status de ativação."""
+    class Meta:
+        abstract = True
 
 # --- 1. MODELOS DE ORGANIZAÇÃO, HIERARQUIA E PERMISSÃO ---
 
-class Branch(TimeStampedModel):
+class Branch(BaseModel):
     name = models.CharField(max_length=100, unique=True)
-    is_active = models.BooleanField(default=True)
+    description = models.TextField(blank=True, verbose_name="Descrição")
     class Meta:
         verbose_name = "Filial"
         verbose_name_plural = "Filiais"
     def __str__(self):
         return self.name
 
-class Sector(TimeStampedModel):
+class Sector(BaseModel):
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='sectors', verbose_name="Filial")
     name = models.CharField(max_length=100, verbose_name="Nome do Setor")
     description = models.TextField(blank=True, verbose_name="Descrição")
-    is_active = models.BooleanField(default=True, verbose_name="Ativo?")
     class Meta:
         unique_together = ('branch', 'name')
         verbose_name = "Setor"
@@ -48,11 +132,10 @@ class Sector(TimeStampedModel):
     def __str__(self):
         return f"{self.name} ({self.branch.name})"
 
-class Location(TimeStampedModel):
+class Location(BaseModel):
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='locations', verbose_name="Filial")
     location_code = models.CharField(max_length=50, help_text="Código único para a locação dentro da filial")
     name = models.CharField(max_length=100, help_text="Nome descritivo (ex: Prateleira de Parafusos)")
-    is_active = models.BooleanField(default=True, help_text="A locação está ativa e pode ser usada?")
     class Meta:
         unique_together = ('branch', 'location_code')
         verbose_name = "Locação"
@@ -60,7 +143,7 @@ class Location(TimeStampedModel):
     def __str__(self):
         return f"{self.name} ({self.branch.name})"
 
-class UserProfile(TimeStampedModel):
+class UserProfile(TimeStampedModel, IsActiveMixin):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     manager = models.ForeignKey(
         'self', 
@@ -86,7 +169,7 @@ class UserProfile(TimeStampedModel):
 
 # --- 2. MODELOS DE CATÁLOGO DE PRODUTOS ---
 
-class Supplier(TimeStampedModel):
+class Supplier(BaseModel, AddressMixin):
     class TaxRegime(models.TextChoices):
         SIMPLE = 'SIMPLE', 'Simples Nacional'
         MEI = 'MEI', 'MEI'
@@ -99,27 +182,27 @@ class Supplier(TimeStampedModel):
         'self', on_delete=models.SET_NULL, null=True, blank=True, 
         related_name='branches', verbose_name="Fornecedor Matriz"
     )
-    country = CountryField(default='BR', verbose_name="País")
     tax_regime = models.CharField(max_length=10, choices=TaxRegime.choices, blank=True, verbose_name="Regime Tributário")
     cnpj = models.CharField(max_length=18, blank=True, verbose_name="CNPJ (se brasileiro)")
     tax_id = models.CharField(max_length=50, blank=True, verbose_name="ID Fiscal (se estrangeiro)")
-    is_active = models.BooleanField(default=True, verbose_name="Ativo?")
-    postal_code = models.CharField(max_length=10, blank=True, verbose_name="CEP")
-    address_line_1 = models.CharField(max_length=255, blank=True, verbose_name="Endereço (Rua, Av.)")
-    address_line_2 = models.CharField(max_length=100, blank=True, verbose_name="Número e Complemento")
-    neighborhood = models.CharField(max_length=100, blank=True, verbose_name="Bairro")
-    city = models.CharField(max_length=100, blank=True, verbose_name="Cidade")
-    state = models.CharField(max_length=50, blank=True, verbose_name="Estado/Província")
     contact_person = models.CharField(max_length=100, blank=True, verbose_name="Pessoa de Contato")
     phone_number = models.CharField(max_length=20, blank=True, verbose_name="Telefone de Contato")
     email = models.EmailField(blank=True, verbose_name="E-mail de Contato")
     def __str__(self):
         return self.name
 
-class Category(TimeStampedModel):
+class CategoryGroup(BaseModel):
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
-    is_active = models.BooleanField(default=True, verbose_name="Ativo?")
+
+    def __str__(self):
+        return self.name
+
+class Category(BaseModel):
+    group = models.ForeignKey(CategoryGroup, on_delete=models.SET_NULL, null=True, blank=True, related_name='categories')
+    
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
     class Meta:
         verbose_name_plural = "Categories"
     def __str__(self):
@@ -131,14 +214,14 @@ def validate_ean(value):
     if value and not is_valid(value):
         raise ValidationError(f'"{value}" não é um código EAN válido.')
 
-class Item(TimeStampedModel):
+class Item(BaseModel, PhysicalPropertiesMixin):
     class StatusChoices(models.TextChoices):
         ACTIVE = 'ACTIVE', 'Ativo'
         DISCONTINUED = 'DISCONTINUED', 'Fora de Linha'
         INACTIVE = 'INACTIVE', 'Inativo'
-    
 
-    owner = models.ForeignKey(User, on_delete=models.CASCADE, help_text="Usuário que cadastrou o item.")
+    is_active = None 
+    
     sku = models.CharField(max_length=50, unique=True)
     ean = models.CharField(
         max_length=13, 
@@ -164,65 +247,31 @@ class Item(TimeStampedModel):
     manufacturer_code = models.CharField(max_length=50, blank=True)
     short_description = models.CharField(max_length=255, blank=True)
     long_description = models.TextField(blank=True)
-    # --- Dimensões e Garantia ---
-    height = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Altura (cm)")
-    width = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Largura (cm)")
-    depth = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Profundidade (cm)")
 
     warranty_days = models.IntegerField(default=0, verbose_name="Prazo de Garantia (dias)")
     warranty_conditions = models.TextField(blank=True, verbose_name="Condições da Garantia")
-
-
-
-    unit_of_measure = models.CharField(max_length=50, default='Peça')
-    
+    unit_of_measure = models.CharField(max_length=50, default='Peça') 
     purchase_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     sale_price = models.DecimalField(max_digits=10, decimal_places=2)
     minimum_stock_level = models.PositiveIntegerField(default=10)
     
 
     def save(self, *args, **kwargs):
-        # Verifica se uma nova foto foi enviada
+        # Lógica para verificar se a foto mudou
+        if self.photo and self.pk:
+            try:
+                old_instance = Item.objects.get(pk=self.pk)
+                if old_instance.photo == self.photo:
+                    # Foto não mudou, apenas salva e sai
+                    super().save(*args, **kwargs)
+                    return
+            except Item.DoesNotExist:
+                pass
+        
+        # Se há uma foto nova ou alterada, otimiza
         if self.photo:
-            # 'self.pk is None' checa se é um objeto novo.
-            # Se não for novo, checamos se a foto foi alterada.
-            is_new = self.pk is None
-            if not is_new:
-                try:
-                    old_instance = Item.objects.get(pk=self.pk)
-                    if old_instance.photo == self.photo:
-                        # Se a foto for a mesma, não faz nada e salva normalmente
-                        super().save(*args, **kwargs)
-                        return
-                except Item.DoesNotExist:
-                    pass # Continua se a instância antiga não for encontrada
-
-            # --- INÍCIO DA LÓGICA DE OTIMIZAÇÃO ---
-            pil_image = PilImage.open(self.photo)
-
-            # 1. Redimensionar se for muito grande (ex: max 1024x1024)
-            max_width, max_height = 1024, 1024
-            if pil_image.width > max_width or pil_image.height > max_height:
-                pil_image.thumbnail((max_width, max_height))
-
-            # 2. Salvar em um buffer de memória no formato WebP com compressão
-            buffer = BytesIO()
-            pil_image.save(buffer, format='WEBP', quality=85)
-            buffer.seek(0)
-
-            # 3. Criar um novo nome de arquivo com a extensão .webp
-            file_name, _ = os.path.splitext(self.photo.name)
-            new_file_name = f"{file_name}.webp"
-
-            # 4. Substitui o arquivo original pelo arquivo otimizado
-            self.photo.save(
-                new_file_name,
-                ContentFile(buffer.read()),
-                save=False # Adia o 'save' do modelo para o final
-            )
-
-        # Chama o método .save() original para salvar o modelo no banco
-        super().save(*args, **kwargs)
+            new_name, new_content = optimize_image(self.photo)
+            self.photo.save(new_name, new_content, save=False)
         
     @property
     def total_quantity(self):
@@ -237,7 +286,7 @@ class Item(TimeStampedModel):
         return f"{self.name} (SKU: {self.sku})"
 
 
-class MovementType(models.Model):
+class MovementType(BaseModel):
     """Define um Tipo de Operação (TPO) de estoque, sua natureza e regras."""
     
     class FactorChoices(models.IntegerChoices):
@@ -314,10 +363,6 @@ class MovementType(models.Model):
         default=True,
         help_text="Este tipo de movimento impacta no cálculo financeiro?"
     )
-    is_active = models.BooleanField(
-        default=True,
-        help_text="Tipos inativos não aparecerão em novas movimentações"
-    )
     is_locked = models.BooleanField(
         default=False,
         help_text="Tipos bloqueados não podem ser editados"
@@ -337,7 +382,6 @@ class MovementType(models.Model):
     )
     history = HistoricalRecords(
         excluded_fields=['units_per_package'],
-        help_text="Histórico de alterações"
     )
 
     class Meta:
@@ -396,35 +440,17 @@ class MovementType(models.Model):
         super().save(*args, **kwargs)
     """Define um Tipo de Operação (TPO) de estoque, sua natureza e regras."""
 
-    class FactorChoices(models.IntegerChoices):
-        ADD = 1, 'Adicionar ao Estoque'
-        SUBTRACT = -1, 'Subtrair do Estoque'
-
-    name = models.CharField(max_length=100, unique=True)
-    factor = models.IntegerField(choices=FactorChoices.choices, help_text="Define se a operação é de entrada ou saída.")
-    units_per_package = models.PositiveIntegerField(null=True, blank=True, help_text="Para operações com pacotes/caixas, define o fator multiplicador.")
-    description = models.TextField(blank=True)
-    is_active = models.BooleanField(default=True, help_text="Tipos inativos não aparecerão em novas movimentações.")
-    def __str__(self):
-        return self.name
-    def clean(self):
-        if self.units_per_package and self.units_per_package < 1:
-            raise ValidationError("Unidades por pacote deve ser ≥ 1")
-        if self.factor == self.FactorChoices.ADD and self.units_per_package is None:
-            self.units_per_package = 1  # Valor padrão para entradas
-
-class StockItem(models.Model):
+class StockItem(TimeStampedModel):
     """Representa o saldo atual de um item em um local específico."""
     item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name='stock_items')
     location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name='stock_locations')
     quantity = models.IntegerField(default=0) # Permite estoque negativo temporário
-    updated_at = models.DateTimeField(auto_now=True)
     class Meta:
         unique_together = ('item', 'location')
     def __str__(self):
         return f"{self.item.name} @ {self.location.name} (Qty: {self.quantity})"
 
-class StockMovement(models.Model):
+class StockMovement(TimeStampedModel):
     """Registra cada transação de estoque (o extrato)."""
     item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name='movements')
     location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name='location_movements')
@@ -435,9 +461,21 @@ class StockMovement(models.Model):
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     notes = models.TextField(blank=True)
     attachment = models.FileField(upload_to='movement_docs/', blank=True, null=True)
+
+    def get_effective_change(self):
+        """
+        Retorna a quantidade real que afeta o estoque,
+        considerando o fator do tipo de movimento (entrada/saída)
+        e as unidades por pacote.
+        """
+        if not self.movement_type:
+            return 0
+        # Utiliza o método helper do MovementType
+        return self.movement_type.get_effective_quantity(self.quantity)
     
     @property
     def total_moved_value(self):
+        # Agora usa o método centralizado
         base_quantity = self.quantity * (self.movement_type.units_per_package or 1)
         return base_quantity * self.unit_price
 
@@ -447,7 +485,7 @@ class StockMovement(models.Model):
                 self.unit_price = self.item.purchase_price
             else: # Saída
                 self.unit_price = self.item.sale_price
-        
+
         with transaction.atomic():
             is_new = self.pk is None
             super().save(*args, **kwargs)
@@ -455,11 +493,12 @@ class StockMovement(models.Model):
                 stock_item, created = StockItem.objects.select_for_update().get_or_create(
                     item=self.item, location=self.location
                 )
-                effective_change = self.quantity * (self.movement_type.units_per_package or 1) * self.movement_type.factor
-                stock_item.quantity += effective_change
+                # Lógica de cálculo simplificada e sem repetição
+                stock_item.quantity += self.get_effective_change() 
                 stock_item.save()
 
     def __str__(self):
-        op_signal = '+' if self.movement_type.factor == 1 else '-'
-        final_qty = self.quantity * (self.movement_type.units_per_package or 1)
-        return f"{self.item.name}: {op_signal}{final_qty} em {self.movement_date.strftime('%d/%m/%Y')}"
+        op_signal = '+' if self.movement_type.is_inbound else '-'
+        # Lógica de cálculo simplificada e sem repetição
+        effective_qty = abs(self.get_effective_change())
+        return f"{self.item.name}: {op_signal}{effective_qty} em {self.movement_date.strftime('%d/%m/%Y')}"
