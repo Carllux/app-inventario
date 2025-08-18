@@ -1,19 +1,33 @@
 # backend/inventory/models.py
 
 from django.db import models, transaction
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, Group
 from django.db.models import Sum
 from django.core.exceptions import ValidationError
-from django.core.validators import MinValueValidator
+from simple_history.models import HistoricalRecords
+from stdnum.ean import is_valid
+from django.core.validators import MinValueValidator, RegexValidator
 from django_countries.fields import CountryField
 from PIL import Image as PilImage
 from io import BytesIO
 from django.core.files.base import ContentFile
 import os
 
+class TimeStampedModel(models.Model):
+    """
+    Um modelo base abstrato que fornece os campos de auditoria
+    `created_at` e `updated_at`.
+    """
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Última Atualização")
+
+    class Meta:
+        abstract = True
+
+
 # --- 1. MODELOS DE ORGANIZAÇÃO, HIERARQUIA E PERMISSÃO ---
 
-class Branch(models.Model):
+class Branch(TimeStampedModel):
     name = models.CharField(max_length=100, unique=True)
     is_active = models.BooleanField(default=True)
     class Meta:
@@ -22,7 +36,7 @@ class Branch(models.Model):
     def __str__(self):
         return self.name
 
-class Sector(models.Model):
+class Sector(TimeStampedModel):
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='sectors', verbose_name="Filial")
     name = models.CharField(max_length=100, verbose_name="Nome do Setor")
     description = models.TextField(blank=True, verbose_name="Descrição")
@@ -34,7 +48,7 @@ class Sector(models.Model):
     def __str__(self):
         return f"{self.name} ({self.branch.name})"
 
-class Location(models.Model):
+class Location(TimeStampedModel):
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='locations', verbose_name="Filial")
     location_code = models.CharField(max_length=50, help_text="Código único para a locação dentro da filial")
     name = models.CharField(max_length=100, help_text="Nome descritivo (ex: Prateleira de Parafusos)")
@@ -46,7 +60,7 @@ class Location(models.Model):
     def __str__(self):
         return f"{self.name} ({self.branch.name})"
 
-class UserProfile(models.Model):
+class UserProfile(TimeStampedModel):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     manager = models.ForeignKey(
         'self', 
@@ -72,7 +86,7 @@ class UserProfile(models.Model):
 
 # --- 2. MODELOS DE CATÁLOGO DE PRODUTOS ---
 
-class Supplier(models.Model):
+class Supplier(TimeStampedModel):
     class TaxRegime(models.TextChoices):
         SIMPLE = 'SIMPLE', 'Simples Nacional'
         MEI = 'MEI', 'MEI'
@@ -102,7 +116,7 @@ class Supplier(models.Model):
     def __str__(self):
         return self.name
 
-class Category(models.Model):
+class Category(TimeStampedModel):
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
     is_active = models.BooleanField(default=True, verbose_name="Ativo?")
@@ -111,7 +125,13 @@ class Category(models.Model):
     def __str__(self):
         return self.name
 
-class Item(models.Model):
+
+def validate_ean(value):
+    """Verifica se o valor é um EAN-13 válido."""
+    if value and not is_valid(value):
+        raise ValidationError(f'"{value}" não é um código EAN válido.')
+
+class Item(TimeStampedModel):
     class StatusChoices(models.TextChoices):
         ACTIVE = 'ACTIVE', 'Ativo'
         DISCONTINUED = 'DISCONTINUED', 'Fora de Linha'
@@ -126,7 +146,8 @@ class Item(models.Model):
         blank=True, 
         null=True,
         verbose_name="EAN",
-        help_text="Código de barras EAN-13 (12 ou 13 dígitos)"
+        help_text="Código de barras EAN-13",
+        validators=[validate_ean] # ✅ 4. CONECTE A FUNÇÃO AQUI
     )
     name = models.CharField(max_length=100)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name='items')
@@ -143,15 +164,21 @@ class Item(models.Model):
     manufacturer_code = models.CharField(max_length=50, blank=True)
     short_description = models.CharField(max_length=255, blank=True)
     long_description = models.TextField(blank=True)
-    weight = models.FloatField(blank=True, null=True, help_text="Peso em kg")
+    # --- Dimensões e Garantia ---
+    height = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Altura (cm)")
+    width = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Largura (cm)")
+    depth = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Profundidade (cm)")
+
+    warranty_days = models.IntegerField(default=0, verbose_name="Prazo de Garantia (dias)")
+    warranty_conditions = models.TextField(blank=True, verbose_name="Condições da Garantia")
+
+
+
     unit_of_measure = models.CharField(max_length=50, default='Peça')
     
     purchase_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     sale_price = models.DecimalField(max_digits=10, decimal_places=2)
     minimum_stock_level = models.PositiveIntegerField(default=10)
-    
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
     
 
     def save(self, *args, **kwargs):
@@ -212,6 +239,163 @@ class Item(models.Model):
 
 class MovementType(models.Model):
     """Define um Tipo de Operação (TPO) de estoque, sua natureza e regras."""
+    
+    class FactorChoices(models.IntegerChoices):
+        ADD = 1, 'Adicionar ao Estoque'
+        SUBTRACT = -1, 'Subtrair do Estoque'
+
+    class MovementCategory(models.TextChoices):
+        INBOUND = 'IN', 'Entrada'
+        OUTBOUND = 'OUT', 'Saída'
+        ADJUSTMENT = 'ADJ', 'Ajuste'
+        TRANSFER = 'TRF', 'Transferência'
+        PRODUCTION = 'PROD', 'Produção'
+        QUALITY = 'QUAL', 'Controle de Qualidade'
+
+    class DocumentType(models.TextChoices):
+        INVOICE = 'NF', 'Nota Fiscal'
+        ORDER = 'OS', 'Ordem de Serviço'
+        TICKET = 'TKT', 'Ticket'
+        INTERNAL = 'INT', 'Documento Interno'
+        NONE = 'N/A', 'Não Aplicável'
+
+    # Campos Básicos
+    code = models.CharField(
+        max_length=10,
+        unique=True,
+        validators=[RegexValidator(r'^[A-Z0-9_]+$', 'Use apenas letras maiúsculas, números e underscores')],
+        help_text="Código único para referência rápida (ex: ENTRADA, DEVSAIDA)"
+    )
+    name = models.CharField(
+        max_length=100,
+        unique=True,
+        validators=[RegexValidator(r'^[a-zA-Z0-9 áéíóúÁÉÍÓÚãõâêîôûÃÕÂÊÎÔÛ]+$')],
+        help_text="Nome descritivo do tipo de movimento"
+    )
+    factor = models.IntegerField(
+        choices=FactorChoices.choices,
+        help_text="Define se a operação é de entrada ou saída no estoque"
+    )
+    units_per_package = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1)],
+        help_text="Para operações com pacotes/caixas, define o fator multiplicador"
+    )
+
+    # Categorização e Controle
+    category = models.CharField(
+        max_length=5,
+        choices=MovementCategory.choices,
+        default=MovementCategory.INBOUND,
+        help_text="Categoria operacional do movimento"
+    )
+    document_type = models.CharField(
+        max_length=5,
+        choices=DocumentType.choices,
+        default=DocumentType.INVOICE,
+        help_text="Tipo de documento associado a este movimento"
+    )
+    parent_type = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='child_types',
+        help_text="Tipo de movimento pai para herança de propriedades"
+    )
+
+    # Configurações de Processo
+    requires_approval = models.BooleanField(
+        default=False,
+        help_text="Movimentos deste tipo exigem aprovação prévia"
+    )
+    affects_finance = models.BooleanField(
+        default=True,
+        help_text="Este tipo de movimento impacta no cálculo financeiro?"
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Tipos inativos não aparecerão em novas movimentações"
+    )
+    is_locked = models.BooleanField(
+        default=False,
+        help_text="Tipos bloqueados não podem ser editados"
+    )
+
+    # Relacionamentos
+    allowed_for_groups = models.ManyToManyField(
+        Group,
+        blank=True,
+        help_text="Grupos com permissão para usar este tipo de movimento"
+    )
+
+    # Metadados
+    description = models.TextField(
+        blank=True,
+        help_text="Descrição detalhada das regras e uso deste tipo"
+    )
+    history = HistoricalRecords(
+        excluded_fields=['units_per_package'],
+        help_text="Histórico de alterações"
+    )
+
+    class Meta:
+        verbose_name = "Tipo de Movimento"
+        verbose_name_plural = "Tipos de Movimento"
+        indexes = [
+            models.Index(fields=['is_active']),
+            models.Index(fields=['category']),
+            models.Index(fields=['code']),
+        ]
+        ordering = ['category', 'name']
+
+    def __str__(self):
+        return f"{self.code} - {self.name}"
+
+    def clean(self):
+        """Validações complexas antes de salvar"""
+        errors = {}
+        
+        # Valida unidades por pacote
+        if self.units_per_package is not None and self.units_per_package < 1:
+            errors['units_per_package'] = "Deve ser ≥ 1 quando especificado"
+        
+        # Valida consistência entre factor e units_per_package
+        if self.factor == self.FactorChoices.ADD and not self.units_per_package:
+            self.units_per_package = 1  # Valor padrão para entradas
+        
+        # Valida hierarquia
+        if self.parent_type and self.parent_type.pk == self.pk:
+            errors['parent_type'] = "Um tipo não pode ser pai de si mesmo"
+        
+        if errors:
+            raise ValidationError(errors)
+
+    @property
+    def is_inbound(self):
+        """Retorna True se for um movimento de entrada"""
+        return self.factor == self.FactorChoices.ADD
+
+    @property
+    def is_outbound(self):
+        """Retorna True se for um movimento de saída"""
+        return not self.is_inbound
+
+    def get_effective_quantity(self, input_quantity):
+        """
+        Calcula a quantidade efetiva que será adicionada/subtraída do estoque
+        considerando o fator e as unidades por pacote
+        """
+        multiplier = self.units_per_package or 1
+        return input_quantity * multiplier * self.factor
+
+    def save(self, *args, **kwargs):
+        """Garante validações e comportamentos padrão ao salvar"""
+        self.full_clean()  # Executa todas as validações
+        super().save(*args, **kwargs)
+    """Define um Tipo de Operação (TPO) de estoque, sua natureza e regras."""
+
     class FactorChoices(models.IntegerChoices):
         ADD = 1, 'Adicionar ao Estoque'
         SUBTRACT = -1, 'Subtrair do Estoque'
@@ -223,6 +407,11 @@ class MovementType(models.Model):
     is_active = models.BooleanField(default=True, help_text="Tipos inativos não aparecerão em novas movimentações.")
     def __str__(self):
         return self.name
+    def clean(self):
+        if self.units_per_package and self.units_per_package < 1:
+            raise ValidationError("Unidades por pacote deve ser ≥ 1")
+        if self.factor == self.FactorChoices.ADD and self.units_per_package is None:
+            self.units_per_package = 1  # Valor padrão para entradas
 
 class StockItem(models.Model):
     """Representa o saldo atual de um item em um local específico."""
