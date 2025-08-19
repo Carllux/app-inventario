@@ -12,8 +12,8 @@ urlpatterns = [
 
     # Rotas da Aplicação
     path("items/", ItemListCreateView.as_view(), name="item-list"),
-    path('items/<int:pk>/', ItemDetailView.as_view(), name='item-detail'),
-    path('items/<int:pk>/stock/', ItemStockDistributionView.as_view(), name='item-stock-distribution'),
+    path('items/<uuid:pk>/', ItemDetailView.as_view(), name='item-detail'),
+    path('items/<uuid:pk>/stock/', ItemStockDistributionView.as_view(), name='item-stock-distribution'),
     path('movements/', StockMovementCreate.as_view(), name='stockmovement-create'),
     path('locations/', LocationList.as_view(), name='location-list'),
     path('movement-types/', MovementTypeList.as_view(), name='movementtype-list'),

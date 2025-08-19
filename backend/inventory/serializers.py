@@ -62,25 +62,42 @@ class LocationSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'location_code', 'branch']
 
 class ItemSerializer(serializers.ModelSerializer):
+    """Serializador de LEITURA: exibe dados aninhados e calculados."""
     category = CategorySerializer(read_only=True)
     supplier = SupplierSerializer(read_only=True)
-    total_quantity = serializers.ReadOnlyField()
-    is_low_stock = serializers.ReadOnlyField()
-    origin = CountryField(name_only=True, read_only=True) # read_only porque não é preenchido na criação principal
-
+    branch = BranchSerializer(read_only=True)
+    origin = CountryField(name_only=True, read_only=True)
+    total_quantity = serializers.IntegerField(read_only=True)
+    is_low_stock = serializers.BooleanField(read_only=True)
+    active = serializers.BooleanField(source='is_active', read_only=True)
+    created_by = serializers.StringRelatedField(read_only=True)
 
     class Meta:
         model = Item
-        # Lista explícita e completa de campos
         fields = [
-            'id', 'sku', 'name', 'status', 'category', 'supplier', 'photo', 'ean', 'weight',
-            'brand', 'purchase_price', 'sale_price', 'unit_of_measure', 'long_description',
-            'origin', 'cfop', 'minimum_stock_level', 'total_quantity', 'is_low_stock', 'owner', 'short_description'
+            'id', 'sku', 'name', 'status', 'active', 'branch', 'category', 'supplier', 
+            'photo', 'brand', 'sale_price', 'unit_of_measure', 'short_description',
+            'total_quantity', 'is_low_stock', 'created_by', 'origin'
         ]
-        extra_kwargs = {
-            'owner': {'read_only': True}  # Normalmente definido automaticamente
-        }
 
+class ItemCreateUpdateSerializer(serializers.ModelSerializer):
+    """Serializador de ESCRITA: espera IDs (PKs) para relações."""
+    created_by = serializers.PrimaryKeyRelatedField(read_only=True)
+    
+    # Django-countries lida com a conversão do código do país (ex: 'BR')
+    origin = CountryField(name_only=True, required=False)
+    branch = serializers.PrimaryKeyRelatedField(queryset=Branch.objects.all())
+    class Meta:
+        model = Item
+        # Lista de campos que o frontend pode ENVIAR
+        fields = [
+            'sku', 'name', 'branch', 'category', 'supplier', 'status', 'brand',
+            'purchase_price', 'sale_price', 'unit_of_measure',
+            'origin', 'cfop', 'minimum_stock_level',
+            'internal_code', 'manufacturer_code', 'short_description', 'long_description',
+            'height', 'width', 'depth', 'weight', 'photo', 'created_by'
+        ]
+        read_only_fields = ['created_by']
 class StockItemSerializer(serializers.ModelSerializer):
     location = LocationSerializer(read_only=True)
 
@@ -95,34 +112,67 @@ class MovementTypeSerializer(serializers.ModelSerializer):
         model = MovementType
         fields = ['id', 'name', 'factor', 'units_per_package']
 
-# Atualize o StockMovementSerializer para incluir validações
-# backend/inventory/serializers.py
-
 class StockMovementSerializer(serializers.ModelSerializer):
+    # Campos para LEITURA (quando retornamos dados)
     user = serializers.StringRelatedField(read_only=True)
     total_moved_value = serializers.ReadOnlyField()
+
+    # Campos para ESCRITA (quando recebemos dados)
+    # Definimos explicitamente para poder modificar seus querysets
+    item = serializers.PrimaryKeyRelatedField(queryset=Item.objects.none())
+    location = serializers.PrimaryKeyRelatedField(queryset=Location.objects.none())
+    movement_type = serializers.PrimaryKeyRelatedField(queryset=MovementType.objects.all())
 
     class Meta:
         model = StockMovement
         fields = [
             'id', 'item', 'location', 'movement_type', 'quantity', 'notes',
-            'user', 'movement_date', 'unit_price', 'total_moved_value'
+            'user', 'created_at', 'unit_price', 'total_moved_value'
         ]
-        read_only_fields = ['user', 'movement_date', 'unit_price', 'total_moved_value']
+        read_only_fields = ['user', 'created_at', 'unit_price', 'total_moved_value']
+
+    def __init__(self, *args, **kwargs):
+        """
+        Filtra os querysets de 'item' e 'location' com base nas filiais
+        do usuário que está fazendo a requisição.
+        """
+        super().__init__(*args, **kwargs)
+        
+        # Se não houver um request no contexto, não faz nada (útil para o OpenAPI schema)
+        request = self.context.get('request', None)
+        if not request or not request.user:
+            return
+
+        user = request.user
+        
+        # Se for admin, pode ver tudo. Senão, filtra pela filial.
+        if user.is_staff:
+            self.fields['item'].queryset = Item.objects.all()
+            self.fields['location'].queryset = Location.objects.all()
+        else:
+            try:
+                user_branches = user.profile.branches.all()
+                self.fields['item'].queryset = Item.objects.filter(branch__in=user_branches)
+                self.fields['location'].queryset = Location.objects.filter(branch__in=user_branches)
+            except UserProfile.DoesNotExist:
+                # Se não tiver perfil, não pode ver nada
+                self.fields['item'].queryset = Item.objects.none()
+                self.fields['location'].queryset = Location.objects.none()
 
     def validate(self, data):
-        # Validações customizadas
-        if data['quantity'] <= 0:
-            raise serializers.ValidationError(
-                {"quantity": "A quantidade deve ser maior que zero."}
-            )
-        
+        """
+        Validações de regras de negócio que ocorrem DEPOIS da validação de campo.
+        """
         movement_type = data['movement_type']
+        quantity = data['quantity']
+
+        if quantity <= 0:
+            raise serializers.ValidationError({"quantity": "A quantidade deve ser maior que zero."})
+        
         if movement_type.factor < 0:
             item = data['item']
             location = data['location']
-            quantity_to_remove = data['quantity'] * (movement_type.units_per_package or 1)
-            
+            quantity_to_remove = quantity * (movement_type.units_per_package or 1)
             stock_item = StockItem.objects.filter(item=item, location=location).first()
             
             if not stock_item or stock_item.quantity < quantity_to_remove:
@@ -131,29 +181,4 @@ class StockMovementSerializer(serializers.ModelSerializer):
                     f"Estoque insuficiente. Saldo atual: {current_stock}, Saída solicitada: {quantity_to_remove}"
                 )
         return data
-
-        def create(self, validated_data):
-            # A lógica de criação agora vive aqui.
-            validated_data['user'] = self.context['request'].user
-            
-            movement = StockMovement(**validated_data)
-            # O método .save() do modelo será chamado aqui, com toda a sua lógica.
-            movement.save() 
-            
-            return movement
-    
-class ItemCreateUpdateSerializer(serializers.ModelSerializer):
-    owner = serializers.PrimaryKeyRelatedField(read_only=True)
-
-    class Meta:
-        model = Item
-        # Lista de campos que o frontend poderá ENVIAR
-        fields = [
-            'sku', 'name', 'category', 'supplier', 'status', 'brand',
-            'purchase_price', 'sale_price', 'unit_of_measure',
-            'origin', 'cfop', 'minimum_stock_level', 'owner',
-            'internal_code', 'manufacturer_code', 'short_description', 'long_description',
-            'weight', 'photo'
-        ]
-        # O owner será definido na view, não enviado pelo frontend
-        read_only_fields = ['owner']
+      

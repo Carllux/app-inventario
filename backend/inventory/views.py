@@ -1,5 +1,6 @@
 # backend/inventory/views.py
 
+from django.http import Http404
 from rest_framework import generics, filters, status, serializers
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.pagination import PageNumberPagination
@@ -113,6 +114,46 @@ class BranchList(BaseListView):
     
     def get_queryset(self):
         return Branch.objects.filter(is_active=True).select_related('manager')
+    
+# backend/inventory/views.py (ou em um novo arquivo mixins.py)
+
+class BranchFilteredQuerysetMixin:
+    """
+    Um mixin que filtra um queryset para garantir que usuários não-staff
+    vejam apenas os dados de suas filiais permitidas.
+
+    A view que usar este mixin DEVE definir o atributo `branch_filter_field`.
+    Ex: `branch_filter_field = 'location__branch__in'`
+    """
+    branch_filter_field = None
+
+    def get_queryset(self):
+        # Primeiro, obtemos o queryset original da view pai
+        queryset = super().get_queryset()
+        user = self.request.user
+
+        # Se for admin, retorna tudo
+        if user.is_staff or user.is_superuser:
+            return queryset
+
+        # Se o atributo de filtro não foi definido na view, levanta um erro para o dev
+        if not self.branch_filter_field:
+            raise NotImplementedError(
+                "A view que usa BranchFilteredQuerysetMixin deve definir 'branch_filter_field'."
+            )
+
+        # Aplica o filtro de filial para usuários normais
+        try:
+            user_branches = user.profile.branches.all()
+            if not user_branches.exists():
+                return queryset.none() # Retorna um queryset vazio se o usuário não tem filial
+
+            # Usa o campo de filtro customizável
+            filter_kwargs = {self.branch_filter_field: user_branches}
+            return queryset.filter(**filter_kwargs).distinct()
+
+        except UserProfile.DoesNotExist:
+            return queryset.none() # Retorna um queryset vazio se não houver perfil
 
 class SectorList(BaseListView):
     serializer_class = SectorSerializer
@@ -153,73 +194,97 @@ class MovementTypeList(BaseListView):
 # --- VIEWS PRINCIPAIS DA APLICAÇÃO ---
 
 class ItemListCreateView(generics.ListCreateAPIView):
-    serializer_class = ItemSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-
-    search_fields = ['sku', 'name', 'brand', 'supplier__name']
-    ordering_fields = ['name', 'sku', 'sale_price', 'purchase_price', 'total_quantity']
+    search_fields = ['sku', 'name', 'brand']
     filterset_fields = {
-        'status': ['exact'],
         'category': ['exact'],
         'supplier': ['exact'],
-        'brand': ['exact', 'icontains'],
-        'purchase_price': ['gte', 'lte', 'exact'],
-        'sale_price': ['gte', 'lte', 'exact'],
-        'stock_items__location': ['exact'],
-        'stock_items__location__branch': ['exact'],  # Novo filtro por filial
+        'branch': ['exact'],
+        'stock_items__location': ['exact'],  # mantém compatibilidade com filtros DRF
     }
 
     def get_serializer_class(self):
-        if self.request.method == 'POST':
+        if self.request.method in ['POST', 'PUT', 'PATCH']:
             return ItemCreateUpdateSerializer
         return ItemSerializer
-    
-    def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
 
     def get_queryset(self):
         user = self.request.user
-        queryset = Item.objects.filter(status='ACTIVE') \
-                           .select_related('category', 'supplier') \
-                           .prefetch_related('stock_items__location__branch')
-        # 1. Filtro de segurança por filial (para não-admins)
+
+        # PASSO 1: queryset base (staff vê tudo, normal vê só ativos)
+        queryset = Item.all_objects.all() if user.is_staff else Item.objects.all()
+
+        # PASSO 2: aplica permissão de filial para usuários comuns
         if not (user.is_staff or user.is_superuser):
             try:
                 user_branches = user.profile.branches.all()
                 if not user_branches.exists():
-                    return Item.objects.none()
-                queryset = queryset.filter(stock_items__location__branch__in=user_branches).distinct()
+                    return queryset.none()
+
+                queryset = queryset.filter(branch__in=user_branches)
+
+                # 🔥 PASSO EXTRA: validar filtro por localização
+                location_id = self.request.query_params.get("stock_items__location") \
+                               or self.request.query_params.get("location")
+                if location_id:
+                    # Se a location não pertence a nenhuma filial do usuário → bloqueia
+                    if not Location.objects.filter(id=location_id, branch__in=user_branches).exists():
+                        return queryset.none()
+
             except UserProfile.DoesNotExist:
-                return Item.objects.none()
-        
-        # ✅ 2. APLICAMOS OS FILTROS DA URL MANUALMENTE AQUI
-        # Filtro por localização
-        location_id = self.request.query_params.get('stock_items__location')
-        if location_id:
-            queryset = queryset.filter(stock_items__location__id=location_id)
-            
-        # Filtro por categoria
-        category_id = self.request.query_params.get('category')
-        if category_id:
-            queryset = queryset.filter(category__id=category_id)
+                return queryset.none()
 
-        # Adicione outros filtros manuais aqui se necessário (status, supplier, etc.)
-            
-        return queryset.distinct() # Garante que não haja duplicatas
+        # PASSO 3: otimizações de query
+        return queryset.select_related("branch", "category", "supplier").distinct()
 
-    # ✅ MÉTODO ADICIONADO PARA CORRIGIR O TypeError
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
     def create(self, request, *args, **kwargs):
         write_serializer = self.get_serializer(data=request.data)
         write_serializer.is_valid(raise_exception=True)
         self.perform_create(write_serializer)
 
-        # Para a resposta, usamos o serializador de LEITURA
-        read_serializer = ItemSerializer(write_serializer.instance)
-        
+        read_serializer = ItemSerializer(write_serializer.instance, context={'request': request})
         headers = self.get_success_headers(read_serializer.data)
         return Response(read_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+
+class ItemDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAuthenticated]
+    lookup_field = 'pk' 
+
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return ItemCreateUpdateSerializer
+        return ItemSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+    
+        # PASSO 1: Define o queryset base. Admins veem tudo (incluindo soft-deleted).
+        # Usuários normais veem apenas os itens não-deletados (o .objects já faz isso).
+        queryset = Item.all_objects.all() if user.is_staff else Item.objects.all()
+    
+        # PASSO 2: Aplica o filtro de permissão por filial APENAS para usuários normais.
+        if not (user.is_staff or user.is_superuser):
+            try:
+                user_branches = user.profile.branches.all()
+                if not user_branches.exists():
+                    return queryset.none() # Se não tem filial, não vê nada.
+                
+                # Filtra o queryset base que já foi definido.
+                queryset = queryset.filter(branch__in=user_branches)
+            except UserProfile.DoesNotExist:
+                return queryset.none()
+        
+        # PASSO 3: Adiciona otimizações e retorna o resultado final.
+        return queryset.select_related('branch', 'category', 'supplier').distinct()
+
+    def perform_destroy(self, instance):
+        instance.delete()
 
 class StockMovementCreate(generics.CreateAPIView):
     """Endpoint para registrar uma nova movimentação de estoque."""
@@ -227,45 +292,21 @@ class StockMovementCreate(generics.CreateAPIView):
     serializer_class = StockMovementSerializer
     permission_classes = [IsAuthenticated]
     throttle_classes = [SustainedRateThrottle]
+
+    def perform_create(self, serializer):
+        """
+        Este método é chamado APENAS DEPOIS da validação passar.
+        Aqui definimos o usuário que está fazendo a movimentação.
+        """
+        serializer.save(user=self.request.user)
     
-    def create(self, request, *args, **kwargs):
-        try:
-            response = super().create(request, *args, **kwargs)
-            
-            if response.status_code == status.HTTP_201_CREATED:
-                item_id = request.data.get('item')
-                location_id = request.data.get('location')
-                
-                if item_id and location_id:
-                    stock_item = StockItem.objects.filter(
-                        item_id=item_id,
-                        location_id=location_id
-                    ).first()
-                    if stock_item:
-                        response.data['current_stock'] = stock_item.quantity
-                        
-            return response
-            
-        except serializers.ValidationError as e:
-            return Response(
-                {'detail': str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-    
-class StockItemView(generics.RetrieveUpdateAPIView):
+class StockItemView(BranchFilteredQuerysetMixin, generics.RetrieveUpdateAPIView):
     serializer_class = StockItemSerializer
     permission_classes = [IsAuthenticated]
+    queryset = StockItem.objects.select_related('item', 'location', 'location__branch')
     
-    def get_queryset(self):
-        queryset = StockItem.objects.select_related(
-            'item', 'location', 'location__branch'
-        )
-        
-        if not self.request.user.is_staff:
-            queryset = queryset.filter(
-                location__branch__in=self.request.user.profile.branches.all()
-            )
-        return queryset
+    # Apenas definimos o caminho para o filtro. O Mixin faz o resto!
+    branch_filter_field = 'location__branch__in'
     
     def perform_update(self, serializer):
         instance = serializer.save()
@@ -283,77 +324,22 @@ class SupplierList(BaseListView):
     serializer_class = SupplierSerializer
     search_fields = ['name', 'cnpj'] # Permite buscar por nome ou cnpj
 
-class ItemDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """
-    View para ver detalhes (GET), atualizar (PUT/PATCH) ou deletar (DELETE) um item.
-    """
-    permission_classes = [IsAuthenticated]
-    
-    # A lógica de permissão garante que um usuário só possa acessar
-    # itens de suas próprias filiais.
-    def get_queryset(self):
-        user = self.request.user
-        if user.is_staff or user.is_superuser:
-            return Item.objects.all()
-        try:
-            user_branches = user.profile.branches.all()
-            return Item.objects.filter(stock_items__location__branch__in=user_branches).distinct()
-        except UserProfile.DoesNotExist:
-            return Item.objects.none()
-
-    def get_serializer_class(self):
-        """Usa o serializador de escrita para PUT/PATCH e o de leitura para GET."""
-        if self.request.method in ['PUT', 'PATCH']:
-            return ItemCreateUpdateSerializer
-        return ItemSerializer
-    
-    def update(self, request, *args, **kwargs):
-        partial = kwargs.pop('partial', False)
-        instance = self.get_object()
-        
-        # Usa o serializador de ESCRITA para validar e salvar
-        write_serializer = self.get_serializer(instance, data=request.data, partial=partial)
-        write_serializer.is_valid(raise_exception=True)
-        self.perform_update(write_serializer)
-
-        # Para a RESPOSTA, usa o serializador de LEITURA
-        read_serializer = ItemSerializer(write_serializer.instance)
-        
-        return Response(read_serializer.data)
-    
-    def perform_destroy(self, instance):
-        """Executa um 'soft delete' em vez de deletar o objeto."""
-        instance.status = Item.StatusChoices.INACTIVE
-        instance.save()
-    
-
-# Em backend/inventory/views.py
-
 class ItemStockDistributionView(generics.ListAPIView):
-    """
-    Endpoint para listar a distribuição de estoque de um item específico por local,
-    respeitando as permissões de filial do usuário.
-    """
     serializer_class = StockItemSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         user = self.request.user
-        item_pk = self.kwargs.get('pk')
-        
-        base_queryset = StockItem.objects.filter(item__pk=item_pk)
+        item_pk = self.kwargs.get("pk")
 
-        # Se o usuário não for admin, filtramos o estoque apenas para as filiais permitidas
+        # Primeiro, checa se o item existe e é acessível
+        qs_item = Item.objects.all()
         if not (user.is_staff or user.is_superuser):
-            try:
-                user_branches = user.profile.branches.all()
-                if not user_branches.exists():
-                    return StockItem.objects.none()
-                
-                # Filtra os StockItems cuja localização pertence a uma das filiais do usuário
-                base_queryset = base_queryset.filter(location__branch__in=user_branches)
-            
-            except UserProfile.DoesNotExist:
-                return StockItem.objects.none()
-                
-        return base_queryset.order_by('location__name')
+            qs_item = qs_item.filter(branch__in=user.profile.branches.all())
+
+        if not qs_item.filter(pk=item_pk).exists():
+            # 🔥 força 404 se o item não pertence a uma filial acessível
+            raise Http404("Item não encontrado ou sem permissão")
+
+        # Caso contrário, retorna os estoques do item
+        return StockItem.objects.filter(item__pk=item_pk).order_by("location__name")

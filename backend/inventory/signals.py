@@ -1,25 +1,36 @@
+# inventory/signals.py
+from django.db import transaction
 from django.db.models.signals import post_save
-from django.contrib.auth.models import User
 from django.dispatch import receiver
-from .models import UserProfile, Branch, Sector
+from django.contrib.auth.models import User
+from .models import UserProfile, SystemSettings
 
-@receiver(post_save, sender=User)
+@receiver(post_save, sender=User, dispatch_uid="create_user_profile")
 def create_or_update_user_profile(sender, instance, created, **kwargs):
+    """
+    Signal ATÔMICO e seguro que não interfere em transações de teste
+    """
     if created:
-        # O perfil ainda é criado automaticamente
-        profile = UserProfile.objects.create(user=instance)
-        
-        # LÓGICA ADICIONAL: Definindo permissões padrão
         try:
-            # Tenta encontrar a filial e o setor padrão
-            default_branch = Branch.objects.get(name='Filial Principal')
-            default_sector = Sector.objects.get(name='Estoque', branch=default_branch)
-            
-            # Associa o novo perfil a eles
-            profile.branches.add(default_branch)
-            profile.sectors.add(default_sector)
-            
-        except (Branch.DoesNotExist, Sector.DoesNotExist):
-            # Se os padrões não existirem, não faz nada.
-            # Em um sistema real, poderíamos registrar um log de erro aqui.
-            pass
+            # Usa transação atômica para evitar conflitos
+            with transaction.atomic():
+                # Verifica se já existe profile antes de criar
+                if not hasattr(instance, 'profile'):
+                    profile = UserProfile.objects.create(user=instance)
+                    
+                    # Tenta adicionar configurações padrão de forma segura
+                    try:
+                        settings = SystemSettings.get_solo()
+                        if settings.default_branch:
+                            profile.branches.add(settings.default_branch)
+                        if settings.default_sector:
+                            profile.sectors.add(settings.default_sector)
+                    except Exception:
+                        # Ignora erros de configuração silenciosamente
+                        pass
+                        
+        except Exception as e:
+            # Log do erro mas não quebra a aplicação
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Erro no signal de perfil: {e}")

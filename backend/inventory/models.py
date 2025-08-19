@@ -1,5 +1,5 @@
 # backend/inventory/models.py
-
+from solo.models import SingletonModel 
 from django.db import models, transaction
 from django.contrib.auth.models import User, Group
 from django.db.models import Sum, F
@@ -144,6 +144,7 @@ class SoftDeleteMixin(models.Model):
 class BaseModel(UUIDMixin, TimeStampedModel, AuditMixin, IsActiveMixin, SoftDeleteMixin):
     """Um modelo base que inclui timestamps, auditoria e status de ativação."""
     class Meta:
+        ordering = ['-created_at']
         abstract = True
 
 # --- 1. MODELOS DE ORGANIZAÇÃO, HIERARQUIA E PERMISSÃO ---
@@ -269,22 +270,24 @@ class ItemManager(models.Manager):
 
 class Item(BaseModel, PhysicalPropertiesMixin):
     objects = ItemManager()
+
     class StatusChoices(models.TextChoices):
         ACTIVE = 'ACTIVE', 'Ativo'
         DISCONTINUED = 'DISCONTINUED', 'Fora de Linha'
         INACTIVE = 'INACTIVE', 'Inativo'
 
-    is_active = None 
-    
+    # Neutraliza o campo herdado is_active do IsActiveMixin
+    is_active = None
+
     sku = models.CharField(max_length=50, unique=True)
     ean = models.CharField(
-        max_length=13, 
-        unique=True, 
-        blank=True, 
+        max_length=13,
+        unique=True,
+        blank=True,
         null=True,
         verbose_name="EAN",
         help_text="Código de barras EAN-13",
-        validators=[validate_ean] # ✅ 4. CONECTE A FUNÇÃO AQUI
+        validators=[validate_ean]
     )
     name = models.CharField(max_length=100)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name='items')
@@ -292,40 +295,56 @@ class Item(BaseModel, PhysicalPropertiesMixin):
     status = models.CharField(max_length=12, choices=StatusChoices.choices, default=StatusChoices.ACTIVE)
     origin = CountryField(blank=True, verbose_name="País de Origem")
     cfop = models.CharField(max_length=4, blank=True, help_text="CFOP")
-    
+
     photo = models.ImageField(upload_to='item_photos/', blank=True, null=True)
     brand = models.CharField(max_length=50, blank=True)
-    
-    # ✅ CAMPOS REINTEGRADOS
+    branch = models.ForeignKey(
+        Branch,
+        on_delete=models.PROTECT,
+        related_name='items',
+        verbose_name="Filial Principal do Item"
+    )
     internal_code = models.CharField(max_length=50, blank=True)
     manufacturer_code = models.CharField(max_length=50, blank=True)
     short_description = models.CharField(max_length=255, blank=True)
     long_description = models.TextField(blank=True)
 
-    warranty_days = models.IntegerField(default=0, verbose_name="Prazo de Garantia (dias)")
-    warranty_conditions = models.TextField(blank=True, verbose_name="Condições da Garantia")
-    unit_of_measure = models.CharField(max_length=50, default='Peça') 
-    purchase_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    sale_price = models.DecimalField(max_digits=10, decimal_places=2)
-    minimum_stock_level = models.PositiveIntegerField(default=10)
-    
+    warranty_days = models.IntegerField(default=0, verbose_name="Garantia (dias)")
+    purchase_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    sale_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    unit_of_measure = models.CharField(max_length=20, default="UN", verbose_name="Unidade de Medida")
+    minimum_stock_level = models.IntegerField(default=0)
 
-    def save(self, *args, **kwargs):
-        # Lógica para verificar se a foto mudou
-        if self.photo and self.pk:
-            try:
-                old_instance = Item.objects.get(pk=self.pk)
-                if old_instance.photo == self.photo:
-                    # Foto não mudou, apenas salva e sai
-                    super().save(*args, **kwargs)
-                    return
-            except Item.DoesNotExist:
-                pass
+    # --- SOFT DELETE customizado ---
+    def delete(self, using=None, keep_parents=False):
+        """
+        Soft delete que também marca como deletados os estoques relacionados.
+        """
+        from django.utils import timezone
+        self.deleted_at = timezone.now()
+        self.save(update_fields=["deleted_at"])
+
+        # Marca todos os estoques vinculados como deletados
+        self.stock_items.update(deleted_at=timezone.now())
+
+    def restore(self):
+        """
+        Restaura o item e seus estoques relacionados.
+        """
+        self.deleted_at = None
+        self.save(update_fields=["deleted_at"])
+        self.stock_items.update(deleted_at=None)
+
+    def __str__(self):
+        return f"{self.name} (SKU: {self.sku})"
         
-        # Se há uma foto nova ou alterada, otimiza
-        if self.photo:
-            new_name, new_content = optimize_image(self.photo)
-            self.photo.save(new_name, new_content, save=False)
+    def save(self, *args, **kwargs):
+        if self.photo and not self.photo.name.endswith('.webp'):
+            from .utils import optimize_image
+            new_name, content = optimize_image(self.photo)
+            self.photo.save(new_name, content, save=False)
+        super().save(*args, **kwargs)
+
     @property
     def total_quantity(self):
         total = self.stock_items.aggregate(total=Sum('quantity'))['total']
@@ -334,15 +353,13 @@ class Item(BaseModel, PhysicalPropertiesMixin):
     @property
     def is_low_stock(self):
         return self.total_quantity < self.minimum_stock_level
-
-    def __str__(self):
-        return f"{self.name} (SKU: {self.sku})"
     
     @property
     def active(self):
         """Retorna True se o status do item for 'ATIVO'."""
         return self.status == self.StatusChoices.ACTIVE
 
+    
 
 class MovementType(BaseModel):
     """Define um Tipo de Operação (TPO) de estoque, sua natureza e regras."""
@@ -498,15 +515,45 @@ class MovementType(BaseModel):
         super().save(*args, **kwargs)
     """Define um Tipo de Operação (TPO) de estoque, sua natureza e regras."""
 
-class StockItem(TimeStampedModel):
-    """Representa o saldo atual de um item em um local específico."""
-    item = models.ForeignKey(Item, on_delete=models.PROTECT, related_name='stock_items')
-    location = models.ForeignKey(Location, on_delete=models.PROTECT, related_name='stock_locations')
-    quantity = models.IntegerField(default=0) # Permite estoque negativo temporário
+class StockItem(BaseModel):
+    """
+    Representa o saldo atual de um item em um local específico.
+    Inclui suporte a soft delete para manter consistência com Item.
+    """
+    item = models.ForeignKey(
+        Item,
+        on_delete=models.PROTECT,  # Protege histórico: não permite apagar Item se houver estoque
+        related_name='stock_items'
+    )
+    location = models.ForeignKey(
+        Location,
+        on_delete=models.PROTECT,  # Mesma ideia para a localização
+        related_name='stock_items'
+    )
+    quantity = models.IntegerField(default=0)  # Permite estoque negativo temporário
+
     class Meta:
         unique_together = ('item', 'location')
+        verbose_name = "Saldo de Estoque"
+        verbose_name_plural = "Saldos de Estoque"
+
     def __str__(self):
         return f"{self.item.name} @ {self.location.name} (Qty: {self.quantity})"
+
+    def delete(self, using=None, keep_parents=False):
+        """
+        Soft delete customizado: marca como deletado em vez de remover.
+        """
+        from django.utils import timezone
+        self.deleted_at = timezone.now()
+        self.save()
+
+    def restore(self):
+        """
+        Restaura o registro do estoque.
+        """
+        self.deleted_at = None
+        self.save()
 
 class StockMovement(TimeStampedModel):
     """Registra cada transação de estoque (o extrato)."""
@@ -567,3 +614,27 @@ class StockMovement(TimeStampedModel):
         effective_qty = abs(self.get_effective_change())
         # ATUALIZE AQUI PARA USAR O CAMPO DO MIXIN
         return f"{self.item.name}: {op_signal}{effective_qty} em {self.created_at.strftime('%d/%m/%Y')}"
+    
+class SystemSettings(SingletonModel):
+    """
+    Um modelo singleton para guardar configurações globais do sistema,
+    editáveis através do painel de administração.
+    """
+    default_branch = models.ForeignKey(
+        Branch,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        verbose_name="Filial Padrão para Novos Usuários"
+    )
+    default_sector = models.ForeignKey(
+        Sector,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        verbose_name="Setor Padrão para Novos Usuários"
+    )
+
+    class Meta:
+        verbose_name = "Configurações do Sistema"
+
+    def __str__(self):
+        return "Configurações do Sistema"

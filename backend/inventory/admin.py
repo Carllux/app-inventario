@@ -2,12 +2,13 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
+from solo.admin import SingletonModelAdmin 
 
 # Importamos apenas os modelos do NOSSO app 'inventory'
 from .models import (
     Branch, Sector, UserProfile,
     Supplier, Category, Item, Location, 
-    StockItem, StockMovement, MovementType
+    StockItem, StockMovement, MovementType, SystemSettings 
 )
 
 
@@ -30,6 +31,27 @@ class StockItemInline(admin.TabularInline):
     def has_add_permission(self, request, obj=None):
         return False
 
+class BaseModelAdmin(admin.ModelAdmin):
+    """ModelAdmin base para integrar com SoftDeleteMixin e BaseModel."""
+    actions = ['restore_selected', 'soft_delete_selected']
+
+    def get_queryset(self, request):
+        return self.model.all_objects.all()
+
+    def get_list_display(self, request):
+        # Adiciona 'deleted_at' e 'is_active' para fácil visualização
+        return list(self.list_display) + ['is_active', 'deleted_at']
+
+    @admin.action(description='Restaurar selecionados')
+    def restore_selected(self, request, queryset):
+        for obj in queryset:
+            obj.restore()
+
+    @admin.action(description='Deletar (arquivar) selecionados')
+    def soft_delete_selected(self, request, queryset):
+        for obj in queryset:
+            obj.delete()
+
 # --- ADMINS CUSTOMIZADOS ---
 
 class CustomUserAdmin(BaseUserAdmin):
@@ -48,43 +70,42 @@ admin.site.unregister(User)
 admin.site.register(User, CustomUserAdmin)
 
 @admin.register(Branch)
-class BranchAdmin(admin.ModelAdmin):
-    list_display = ('name', 'is_active')
+class BranchAdmin(BaseModelAdmin):
+    list_display = ('name',)
     search_fields = ('name',)
 
 @admin.register(Sector)
-class SectorAdmin(admin.ModelAdmin):
-    list_display = ('name', 'branch', 'is_active')
-    list_filter = ('branch', 'is_active')
+class SectorAdmin(BaseModelAdmin):
+    list_display = ('name', 'branch')
+    list_filter = ('branch',)
     search_fields = ('name', 'branch__name')
     autocomplete_fields = ['branch']
 
 @admin.register(Location)
-class LocationAdmin(admin.ModelAdmin):
-    list_display = ('name', 'location_code', 'branch', 'is_active')
-    list_filter = ('branch', 'is_active')
+class LocationAdmin(BaseModelAdmin):
+    list_display = ('name', 'location_code', 'branch')
+    list_filter = ('branch', )
     search_fields = ('name', 'location_code', 'branch__name')
     autocomplete_fields = ['branch']
 
 @admin.register(Supplier)
-class SupplierAdmin(admin.ModelAdmin):
-    list_display = ('name', 'country', 'city', 'is_active')
-    list_filter = ('country', 'is_active', 'tax_regime')
+class SupplierAdmin(BaseModelAdmin):
+    list_display = ('name', 'country', 'city')
+    list_filter = ('country', 'tax_regime')
     search_fields = ('name', 'cnpj', 'tax_id')
 
 @admin.register(Category)
-class CategoryAdmin(admin.ModelAdmin):
-    list_display = ('name', 'is_active')
+class CategoryAdmin(BaseModelAdmin):
+    list_display = ('name',)
     search_fields = ('name',)
 
 @admin.register(MovementType)
-class MovementTypeAdmin(admin.ModelAdmin):
-    list_display = ('name', 'factor', 'units_per_package', 'is_active')
-    list_filter = ('factor', 'is_active')
+class MovementTypeAdmin(BaseModelAdmin):
+    list_display = ('name', 'factor', 'units_per_package')
+    list_filter = ('factor',)
 
 @admin.register(Item)
-class ItemAdmin(admin.ModelAdmin):
-    # ... (Sua classe ItemAdmin estava perfeita e pode ser mantida como estava)
+class ItemAdmin(BaseModelAdmin):
     list_display = ('sku', 'name', 'category', 'total_quantity', 'sale_price', 'status', 'is_low_stock')
     list_filter = ('status', 'category', 'supplier')
     search_fields = ('name', 'sku', 'brand')
@@ -92,7 +113,7 @@ class ItemAdmin(admin.ModelAdmin):
     autocomplete_fields = ['category', 'supplier']
     inlines = [StockItemInline]
     fieldsets = (
-        ('Informações Principais', {'fields': ('owner', 'name', 'sku', 'status', 'photo')}),
+        ('Informações Principais', {'fields': ('created_by', 'name', 'sku', 'status', 'photo')}),
         ('Classificação', {'fields': ('category', 'supplier', 'brand')}),
         ('Detalhes Fiscais e Origem', {'fields': ('origin', 'cfop')}),
         ('Preços', {'fields': ('purchase_price', 'sale_price')}),
@@ -100,16 +121,16 @@ class ItemAdmin(admin.ModelAdmin):
     )
     def save_model(self, request, obj, form, change):
         if not obj.pk:
-            obj.owner = request.user
+            obj.created_by = request.user
         super().save_model(request, obj, form, change)
 
 @admin.register(StockMovement)
 class StockMovementAdmin(admin.ModelAdmin):
     # ... (Sua classe StockMovementAdmin também estava ótima)
-    list_display = ('item', 'location', 'quantity', 'movement_type', 'movement_date', 'user')
-    list_filter = ('movement_type', 'location', 'movement_date')
+    list_display = ('item', 'location', 'quantity', 'movement_type', 'created_at', 'user')
+    list_filter = ('movement_type', 'location', 'created_at')
     search_fields = ('item__name', 'notes', 'user__username')
-    date_hierarchy = 'movement_date'
+    date_hierarchy = 'created_at'
     autocomplete_fields = ['item', 'location', 'user']
     def save_model(self, request, obj, form, change):
         if not obj.pk:
@@ -125,3 +146,8 @@ class StockItemAdmin(admin.ModelAdmin):
     search_fields = ('item__name', 'location__name')
     autocomplete_fields = ['item', 'location']
     readonly_fields = ('quantity',)
+
+@admin.register(SystemSettings)
+class SystemSettingsAdmin(SingletonModelAdmin):
+    """Admin para as configurações globais."""
+    pass
