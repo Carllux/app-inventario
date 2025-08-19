@@ -143,7 +143,7 @@ class Location(BaseModel):
     def __str__(self):
         return f"{self.name} ({self.branch.name})"
 
-class UserProfile(TimeStampedModel, IsActiveMixin):
+class UserProfile(TimeStampedModel):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     manager = models.ForeignKey(
         'self', 
@@ -284,6 +284,11 @@ class Item(BaseModel, PhysicalPropertiesMixin):
 
     def __str__(self):
         return f"{self.name} (SKU: {self.sku})"
+    
+    @property
+    def active(self):
+        """Retorna True se o status do item for 'ATIVO'."""
+        return self.status == self.StatusChoices.ACTIVE
 
 
 class MovementType(BaseModel):
@@ -442,8 +447,8 @@ class MovementType(BaseModel):
 
 class StockItem(TimeStampedModel):
     """Representa o saldo atual de um item em um local específico."""
-    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name='stock_items')
-    location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name='stock_locations')
+    item = models.ForeignKey(Item, on_delete=models.PROTECT, related_name='stock_items')
+    location = models.ForeignKey(Location, on_delete=models.PROTECT, related_name='stock_locations')
     quantity = models.IntegerField(default=0) # Permite estoque negativo temporário
     class Meta:
         unique_together = ('item', 'location')
@@ -457,7 +462,6 @@ class StockMovement(TimeStampedModel):
     movement_type = models.ForeignKey(MovementType, on_delete=models.PROTECT)
     quantity = models.PositiveIntegerField() # A quantidade da operação é sempre positiva
     unit_price = models.DecimalField(max_digits=10, decimal_places=2, help_text="Preço unitário no momento da movimentação (compra ou venda)")
-    movement_date = models.DateTimeField(auto_now_add=True)
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     notes = models.TextField(blank=True)
     attachment = models.FileField(upload_to='movement_docs/', blank=True, null=True)
@@ -481,10 +485,23 @@ class StockMovement(TimeStampedModel):
 
     def save(self, *args, **kwargs):
         if not self.pk: # Apenas na criação
+            price_to_check = self.item.purchase_price if self.movement_type.is_inbound else self.item.sale_price
+
+            # ADICIONE ESTA VALIDAÇÃO
+            if price_to_check is None or price_to_check <= 0:
+                raise ValidationError(
+                    f"Não é possível criar o movimento. O item '{self.item.name}' "
+                    f"não possui um preço de {'compra' if self.movement_type.is_inbound else 'venda'} válido."
+                )
+
+            self.unit_price = price_to_check
+            
             if self.movement_type.factor > 0: # Entrada
                 self.unit_price = self.item.purchase_price
             else: # Saída
                 self.unit_price = self.item.sale_price
+    
+    
 
         with transaction.atomic():
             is_new = self.pk is None
@@ -499,6 +516,6 @@ class StockMovement(TimeStampedModel):
 
     def __str__(self):
         op_signal = '+' if self.movement_type.is_inbound else '-'
-        # Lógica de cálculo simplificada e sem repetição
         effective_qty = abs(self.get_effective_change())
-        return f"{self.item.name}: {op_signal}{effective_qty} em {self.movement_date.strftime('%d/%m/%Y')}"
+        # ATUALIZE AQUI PARA USAR O CAMPO DO MIXIN
+        return f"{self.item.name}: {op_signal}{effective_qty} em {self.created_at.strftime('%d/%m/%Y')}"
