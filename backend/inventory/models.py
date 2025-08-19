@@ -2,14 +2,17 @@
 
 from django.db import models, transaction
 from django.contrib.auth.models import User, Group
-from django.db.models import Sum
+from django.db.models import Sum, F
 from django.core.exceptions import ValidationError
 from simple_history.models import HistoricalRecords
+from django.db.models.functions import Coalesce
+import uuid
 from stdnum.ean import is_valid
 from django.core.validators import MinValueValidator, RegexValidator
 from django_countries.fields import CountryField
 from decimal import Decimal
 from .utils import optimize_image
+ 
  
 class TimeStampedModel(models.Model):
     """
@@ -64,7 +67,11 @@ class IsActiveMixin(models.Model):
     class Meta:
         abstract = True
 
-# backend/inventory/models.py
+class UUIDMixin(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    class Meta:
+        abstract = True
 
 class PhysicalPropertiesMixin(models.Model):
     """
@@ -105,7 +112,36 @@ class PhysicalPropertiesMixin(models.Model):
     # Você também poderia adicionar outras propriedades úteis aqui, se necessário.
     # Ex: @property def surface_area(self): ...
 
-class BaseModel(TimeStampedModel, AuditMixin, IsActiveMixin):
+# Adicione este manager e mixin no início do arquivo
+class SoftDeleteManager(models.Manager):
+    def get_queryset(self):
+        # Por padrão, exclui os objetos "deletados" das queries
+        return super().get_queryset().filter(deleted_at__isnull=True)
+
+    def all_with_deleted(self):
+        # Método para acessar todos os objetos, incluindo os deletados
+        return super().get_queryset()
+
+class SoftDeleteMixin(models.Model):
+    deleted_at = models.DateTimeField(null=True, blank=True, verbose_name="Data de Exclusão")
+
+    objects = SoftDeleteManager()
+    all_objects = models.Manager() # Manager padrão para acessar tudo
+
+    def delete(self, using=None, keep_parents=False):
+        # Sobrescreve o delete para apenas marcar a data
+        from django.utils import timezone
+        self.deleted_at = timezone.now()
+        self.save()
+
+    def restore(self):
+        self.deleted_at = None
+        self.save()
+
+    class Meta:
+        abstract = True
+
+class BaseModel(UUIDMixin, TimeStampedModel, AuditMixin, IsActiveMixin, SoftDeleteMixin):
     """Um modelo base que inclui timestamps, auditoria e status de ativação."""
     class Meta:
         abstract = True
@@ -214,7 +250,25 @@ def validate_ean(value):
     if value and not is_valid(value):
         raise ValidationError(f'"{value}" não é um código EAN válido.')
 
+class ItemManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset()
+
+    def active(self):
+        """Retorna apenas itens com status ATIVO."""
+        return self.get_queryset().filter(status=Item.StatusChoices.ACTIVE)
+
+    def low_stock(self):
+        """Retorna itens ativos com estoque abaixo do mínimo."""
+        # Exemplo de como a lógica de negócio pode ser encapsulada
+        return self.active().annotate(
+            total_quantity=Coalesce(Sum('stock_items__quantity'), 0)
+        ).filter(total_quantity__lt=models.F('minimum_stock_level'))
+
+
+
 class Item(BaseModel, PhysicalPropertiesMixin):
+    objects = ItemManager()
     class StatusChoices(models.TextChoices):
         ACTIVE = 'ACTIVE', 'Ativo'
         DISCONTINUED = 'DISCONTINUED', 'Fora de Linha'
@@ -272,7 +326,6 @@ class Item(BaseModel, PhysicalPropertiesMixin):
         if self.photo:
             new_name, new_content = optimize_image(self.photo)
             self.photo.save(new_name, new_content, save=False)
-        
     @property
     def total_quantity(self):
         total = self.stock_items.aggregate(total=Sum('quantity'))['total']
@@ -457,8 +510,8 @@ class StockItem(TimeStampedModel):
 
 class StockMovement(TimeStampedModel):
     """Registra cada transação de estoque (o extrato)."""
-    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name='movements')
-    location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name='location_movements')
+    item = models.ForeignKey(Item, on_delete=models.PROTECT, related_name='movements')
+    location = models.ForeignKey(Location, on_delete=models.PROTECT, related_name='location_movements')
     movement_type = models.ForeignKey(MovementType, on_delete=models.PROTECT)
     quantity = models.PositiveIntegerField() # A quantidade da operação é sempre positiva
     unit_price = models.DecimalField(max_digits=10, decimal_places=2, help_text="Preço unitário no momento da movimentação (compra ou venda)")
@@ -487,19 +540,14 @@ class StockMovement(TimeStampedModel):
         if not self.pk: # Apenas na criação
             price_to_check = self.item.purchase_price if self.movement_type.is_inbound else self.item.sale_price
 
-            # ADICIONE ESTA VALIDAÇÃO
             if price_to_check is None or price_to_check <= 0:
                 raise ValidationError(
                     f"Não é possível criar o movimento. O item '{self.item.name}' "
                     f"não possui um preço de {'compra' if self.movement_type.is_inbound else 'venda'} válido."
                 )
 
+            # Atribua o preço validado UMA VEZ. O bloco if/else foi removido.
             self.unit_price = price_to_check
-            
-            if self.movement_type.factor > 0: # Entrada
-                self.unit_price = self.item.purchase_price
-            else: # Saída
-                self.unit_price = self.item.sale_price
     
     
 
