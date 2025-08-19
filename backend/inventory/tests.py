@@ -1,15 +1,24 @@
-from rest_framework.test import APITestCase
-from rest_framework import status
+# Django core
 from django.contrib.auth.models import User
-from django.test import TestCase
-from django.db.models.signals import post_save
-from django.test import TransactionTestCase 
-from rest_framework import status
-from unittest.mock import patch
-from inventory.signals import create_or_update_user_profile
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db.models.signals import post_save
+from django.test import TestCase, TransactionTestCase
+
+# Django REST Framework
+from rest_framework import status
+from rest_framework.test import APITestCase
+
+# Third-party libraries
 from PIL import Image as PilImage
+from unittest.mock import patch
+
+# Local imports
+from inventory.signals import create_or_update_user_profile
+
+# Python standard library
 from io import BytesIO
+import tempfile
+import os
 
 from .models import (
     Branch,
@@ -486,3 +495,276 @@ class ItemDetailAPITests(InventoryTestMixin, APITestCase):
         # A verificação correta para SOFT DELETE
         item_deleted = Item.all_objects.get(pk=self.item_sp.pk) 
         self.assertIsNotNone(item_deleted.deleted_at)
+
+class SoftDeleteTests(InventoryTestMixin, APITestCase):
+    """Testes para a funcionalidade de soft delete."""
+
+    def test_delete_marks_item_and_stockitems_as_deleted(self):
+        """Testa se deletar um item marca ambos o item e seus estoques como deletados."""
+        self.client.force_authenticate(user=self.admin_user)
+        
+        # Verifica estado inicial
+        self.assertIsNone(self.item_sp.deleted_at)
+        stock_items = self.item_sp.stock_items.all()
+        for stock in stock_items:
+            self.assertIsNone(stock.deleted_at)
+        
+        # Deleta o item
+        response = self.client.delete(f'/api/items/{self.item_sp.id}/')
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        
+        # Recarrega os objetos do banco
+        self.item_sp.refresh_from_db()
+        stock_items = self.item_sp.stock_items.all()
+        
+        # Verifica se foram marcados como deletados
+        self.assertIsNotNone(self.item_sp.deleted_at)
+        for stock in stock_items:
+            self.assertIsNotNone(stock.deleted_at)
+    
+    def test_restore_item_restores_stockitems(self):
+        """Testa se restaurar um item também restaura seus estoques."""
+        # Primeiro deleta o item
+        self.item_sp.delete()
+        self.item_sp.refresh_from_db()
+        
+        # Verifica que estão deletados
+        self.assertIsNotNone(self.item_sp.deleted_at)
+        stock_items = self.item_sp.stock_items.all()
+        for stock in stock_items:
+            self.assertIsNotNone(stock.deleted_at)
+        
+        # Restaura o item
+        self.item_sp.restore()
+        self.item_sp.refresh_from_db()
+        
+        # Verifica que foram restaurados
+        self.assertIsNone(self.item_sp.deleted_at)
+        stock_items = self.item_sp.stock_items.all()
+        for stock in stock_items:
+            self.assertIsNone(stock.deleted_at)
+
+# --- TESTES DE MOVIMENTAÇÃO DE ESTOQUE ---
+class StockMovementTests(InventoryTestMixin, APITestCase):
+    """Testes para movimentações de estoque."""
+
+    def test_inbound_increases_quantity(self):
+        """Testa se uma movimentação de entrada aumenta o estoque."""
+        self.client.force_authenticate(user=self.admin_user)
+        
+        stock_before = StockItem.objects.get(item=self.item_sp, location=self.location_sp).quantity
+        
+        movement_data = {
+            'item': self.item_sp.id,
+            'location': self.location_sp.id,
+            'movement_type': self.movement_type_entry.id,
+            'quantity': 10
+        }
+        
+        response = self.client.post('/api/movements/', movement_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        stock_after = StockItem.objects.get(item=self.item_sp, location=self.location_sp).quantity
+        self.assertEqual(stock_after, stock_before + 10)
+    
+    def test_outbound_decreases_quantity(self):
+        """Testa se uma movimentação de saída diminui o estoque."""
+        self.client.force_authenticate(user=self.admin_user)
+        
+        stock_before = StockItem.objects.get(item=self.item_sp, location=self.location_sp).quantity
+        
+        movement_data = {
+            'item': self.item_sp.id,
+            'location': self.location_sp.id,
+            'movement_type': self.movement_type_exit.id,
+            'quantity': 5
+        }
+        
+        response = self.client.post('/api/movements/', movement_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        stock_after = StockItem.objects.get(item=self.item_sp, location=self.location_sp).quantity
+        self.assertEqual(stock_after, stock_before - 5)
+    
+    def test_outbound_fails_with_insufficient_stock(self):
+        """Testa se uma saída com estoque insuficiente é rejeitada."""
+        self.client.force_authenticate(user=self.admin_user)
+        
+        movement_data = {
+            'item': self.item_sp.id,
+            'location': self.location_sp.id,
+            'movement_type': self.movement_type_exit.id,
+            'quantity': 1000  # Mais do que o estoque disponível
+        }
+        
+        response = self.client.post('/api/movements/', movement_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('Estoque insuficiente', str(response.data))
+
+# --- TESTES DE PERMISSÕES ---
+class PermissionTests(InventoryTestMixin, APITestCase):
+    """Testes para controle de permissões e acesso."""
+
+    def test_user_without_branch_cannot_access_items(self):
+        """Testa se usuário sem filial não consegue acessar itens."""
+        user_no_branch = User.objects.create_user('no_branch', 'nobranch@test.com', 'password123')
+        
+        # ⚠️ CORREÇÃO CRÍTICA: Remover TODAS as filiais do perfil
+        user_no_branch.profile.branches.clear()  # ← ISSO AQUI
+        user_no_branch.profile.save()
+        
+        self.client.force_authenticate(user=user_no_branch)
+        
+        response = self.client.get('/api/items/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 0)  # Agora deve ser 0
+    
+    def test_admin_sees_soft_deleted_items(self):
+        """Testa se administradores veem itens deletados."""
+        # Primeiro deleta um item
+        self.item_sp.delete()
+        
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get('/api/items/')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Admin deve ver todos os itens, incluindo deletados
+        # ⚠️ CORREÇÃO: Verificar a contagem considerando soft delete
+        self.assertEqual(len(response.data['results']), 2)
+    
+def test_normal_user_cannot_see_soft_deleted_items(self):
+    """Testa se usuários normais não veem itens deletados."""
+    # Primeiro deleta o item da SP
+    self.item_sp.delete()
+    
+    self.client.force_authenticate(user=self.normal_user_sp)
+    response = self.client.get('/api/items/')
+    
+    self.assertEqual(response.status_code, status.HTTP_200_OK)
+    
+    # ⚠️ CORREÇÃO: Verifica por SKU em vez de posição fixa no array
+    items_skus = [item['sku'] for item in response.data['results']]
+    
+    # Usuário da SP não deve ver nenhum item (seu único item foi deletado)
+    self.assertEqual(len(items_skus), 0)
+    self.assertNotIn(self.item_sp.sku, items_skus)
+    
+    # Usuário da RJ deve ver apenas o item RJ (não deletado)
+    self.client.force_authenticate(user=self.normal_user_rj)
+    response_rj = self.client.get('/api/items/')
+    items_skus_rj = [item['sku'] for item in response_rj.data['results']]
+    
+    self.assertEqual(len(items_skus_rj), 1)
+    self.assertIn(self.item_rj.sku, items_skus_rj)
+
+# --- TESTES DE OTIMIZAÇÃO DE IMAGEM ---
+class ImageOptimizationTests(APITestCase):
+    """Testes para otimização de imagens."""
+
+    def create_test_image(self, format='JPEG', width=100, height=100):
+        """Cria uma imagem de teste em memória."""
+        buffer = BytesIO()
+        image = PilImage.new('RGB', (width, height), 'red')
+        image.save(buffer, format=format)
+        buffer.seek(0)
+        return SimpleUploadedFile(
+            f'test.{format.lower()}',
+            buffer.getvalue(),
+            content_type=f'image/{format.lower()}'
+        )
+    
+    def test_jpeg_is_converted_to_webp(self):
+        """Testa se imagem JPEG é convertida para WebP."""
+        user = User.objects.create_user('test_user', 'test@test.com', 'password123')
+        branch = Branch.objects.create(name='Test Branch')
+        
+        # Cria item com imagem JPEG
+        jpeg_image = self.create_test_image('JPEG')
+        item = Item.objects.create(
+            created_by=user,
+            sku='TEST-IMG-001',
+            name='Test Image Item',
+            sale_price=10.00,
+            branch=branch,
+            photo=jpeg_image
+        )
+        
+        # Verifica se foi convertido para WebP
+        self.assertTrue(item.photo.name.endswith('.webp'))
+        
+        # Verifica se o arquivo existe
+        self.assertTrue(os.path.exists(item.photo.path))
+        
+        # Limpeza
+        if os.path.exists(item.photo.path):
+            os.remove(item.photo.path)
+    
+    def test_webp_is_preserved(self):
+        """Testa se imagem WebP não é reconvertida."""
+        user = User.objects.create_user('test_user', 'test@test.com', 'password123')
+        branch = Branch.objects.create(name='Test Branch')
+        
+        # Cria uma imagem WebP diretamente
+        webp_image = self.create_test_image('WEBP')
+        item = Item.objects.create(
+            created_by=user,
+            sku='TEST-IMG-002',
+            name='Test WebP Item',
+            sale_price=10.00,
+            branch=branch,
+            photo=webp_image
+        )
+        
+        # Deve manter a extensão .webp
+        self.assertTrue(item.photo.name.endswith('.webp'))
+        
+        # Limpeza
+        if os.path.exists(item.photo.path):
+            os.remove(item.photo.path)
+
+# --- TESTES ADICIONAIS DE MOVIMENTAÇÃO ---
+class AdditionalStockMovementTests(InventoryTestMixin, APITestCase):
+    """Testes adicionais para movimentações de estoque."""
+
+    def test_movement_with_package_units(self):
+        """Testa movimentação com unidades por pacote."""
+        movement_type = MovementType.objects.create(
+            name='Entrada Caixa',
+            code='ENT_CAIXA',
+            factor=1,
+            units_per_package=10
+        )
+        
+        self.client.force_authenticate(user=self.admin_user)
+        stock_before = StockItem.objects.get(item=self.item_sp, location=self.location_sp).quantity
+        
+        movement_data = {
+            'item': self.item_sp.id,
+            'location': self.location_sp.id,
+            'movement_type': movement_type.id,
+            'quantity': 2  # 2 caixas de 10 unidades cada
+        }
+        
+        response = self.client.post('/api/movements/', movement_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        stock_after = StockItem.objects.get(item=self.item_sp, location=self.location_sp).quantity
+        self.assertEqual(stock_after, stock_before + 20)  # 2 caixas * 10 unidades
+    
+    def test_movement_sets_correct_unit_price(self):
+        """Testa se o preço unitário é definido corretamente."""
+        self.client.force_authenticate(user=self.admin_user)
+        
+        movement_data = {
+            'item': self.item_sp.id,
+            'location': self.location_sp.id,
+            'movement_type': self.movement_type_entry.id,
+            'quantity': 5
+        }
+        
+        response = self.client.post('/api/movements/', movement_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        # Verifica se o preço unitário foi definido como preço de compra para entrada
+        movement = StockMovement.objects.get(id=response.data['id'])
+        self.assertEqual(movement.unit_price, self.item_sp.purchase_price)

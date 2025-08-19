@@ -230,7 +230,7 @@ class ItemListCreateView(generics.ListCreateAPIView):
                                or self.request.query_params.get("location")
                 if location_id:
                     # Se a location não pertence a nenhuma filial do usuário → bloqueia
-                    if not Location.objects.filter(id=location_id, branch__in=user_branches).exists():
+                    if not Location.objects.filter(id=location_id, branch__in=user_branches, deleted_at__isnull=True).exists():
                         return queryset.none()
 
             except UserProfile.DoesNotExist:
