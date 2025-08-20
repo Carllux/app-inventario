@@ -3,26 +3,41 @@ import axios from 'axios';
 const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
 /**
+ * Busca a lista paginada de itens da API.
+ * @param {object} params - Parâmetros de query (ex: page, search).
+ * @returns {Promise<object>} A resposta completa da API, incluindo 'count' e 'results'.
+ */
+export const fetchItems = async (params = {}) => {
+  try {
+    const response = await axios.get(`${API_URL}/api/items/`, { params });
+    return response.data;
+  } catch (error) {
+    console.error("Erro ao buscar itens:", error.response?.data);
+    throw new Error('Não foi possível carregar os itens.');
+  }
+};
+
+/**
  * Envia os dados de um novo item para a API para criação.
- * @param {object} itemData - Os dados do formulário do item.
+ * @param {FormData} itemData - Os dados do formulário como FormData.
  * @returns {Promise<object>} Os dados do item recém-criado.
  */
 export const createItem = async (itemData) => {
   try {
-    // O token de autorização já está configurado globalmente pelo AuthContext
-    const response = await axios.post(`${API_URL}/api/items/`, itemData);
+    const response = await axios.post(`${API_URL}/api/items/`, itemData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
     return response.data;
   } catch (error) {
     console.error("Erro ao criar o item:", error.response?.data);
-    // Pega a mensagem de erro mais específica da API, se disponível
     const errorMessage = Object.values(error.response?.data || {}).flat().join(' ') || 'Não foi possível criar o item.';
     throw new Error(errorMessage);
   }
 };
 
 /**
- * Busca os dados completos de um único item pelo seu ID.
- * @param {number} itemId - O ID do item a ser buscado.
+ * Busca os dados completos de um único item pelo seu UUID.
+ * @param {string} itemId - O UUID do item.
  * @returns {Promise<object>} Os dados do item.
  */
 export const getItemById = async (itemId) => {
@@ -37,14 +52,15 @@ export const getItemById = async (itemId) => {
 
 /**
  * Envia os dados atualizados de um item para a API.
- * @param {number} itemId - O ID do item a ser atualizado.
- * @param {object} itemData - Os dados do formulário a serem atualizados.
+ * @param {string} itemId - O UUID do item.
+ * @param {FormData} itemData - Os dados do formulário como FormData.
  * @returns {Promise<object>} Os dados do item atualizado.
  */
 export const updateItem = async (itemId, itemData) => {
   try {
-    // Usamos PATCH para atualizações parciais, é mais eficiente.
-    const response = await axios.patch(`${API_URL}/api/items/${itemId}/`, itemData);
+    const response = await axios.patch(`${API_URL}/api/items/${itemId}/`, itemData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
     return response.data;
   } catch (error) {
     console.error(`Erro ao atualizar o item ${itemId}:`, error.response?.data);
@@ -55,23 +71,23 @@ export const updateItem = async (itemId, itemData) => {
 
 /**
  * Busca a distribuição de estoque de um item específico.
- * @param {number} itemId - O ID do item.
- * @returns {Promise<Array>} A lista de StockItems (estoque por local).
+ * @param {string} itemId - O UUID do item.
+ * @returns {Promise<Array>} A lista de StockItems.
  */
 export const getItemStockDistribution = async (itemId) => {
   try {
     const response = await axios.get(`${API_URL}/api/items/${itemId}/stock/`);
     return response.data.results || response.data;
   } catch (error) {
-    console.error(`Erro ao buscar distribuição de estoque para o item ${itemId}:`, error.response?.data);
+    console.error(`Erro ao buscar distribuição de estoque para ${itemId}:`, error.response?.data);
     throw new Error('Não foi possível carregar a distribuição de estoque.');
   }
 };
 
 /**
- * Envia uma requisição para deletar (inativar) um item.
- * @param {number} itemId - O ID do item a ser deletado.
- * @returns {Promise<number>} O status da resposta (geralmente 204).
+ * Envia uma requisição para deletar (soft delete) um item.
+ * @param {string} itemId - O UUID do item.
+ * @returns {Promise<number>} O status da resposta.
  */
 export const deleteItem = async (itemId) => {
   try {
