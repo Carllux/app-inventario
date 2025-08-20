@@ -7,7 +7,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
  * @param {object} params - Parâmetros de query (ex: page, search).
  * @returns {Promise<object>} A resposta completa da API, incluindo 'count' e 'results'.
  */
-export const fetchItems = async (params = {}) => {
+export const getItems = async (params = {}) => {
   try {
     const response = await axios.get(`${API_URL}/api/items/`, { params });
     return response.data;

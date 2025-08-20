@@ -1,0 +1,15 @@
+/* frontend/src/components/PageHeader.module.css */
+
+.pageHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-lg);
+  padding-bottom: var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.headerActions {
+  display: flex;
+  gap: var(--space-sm);
+}

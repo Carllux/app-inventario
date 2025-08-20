@@ -1,132 +1,99 @@
+// frontend/src/pages/InventoryPage.jsx
+
 import React, { useState, useEffect, useCallback } from "react";
-import toast from 'react-hot-toast'; // ✅ IMPORTE AQUI
-import axios from "axios";
+import toast from 'react-hot-toast';
+import { getItems, deleteItem } from '../services/itemService'; // ✅ USA O NOVO SERVIÇO
 import ItemCard from "../components/ItemCard";
 import MovementFormModal from "../components/MovementFormModal";
 import ItemFormModal from "../components/ItemFormModal";
+import ConfirmationModal from '../components/ConfirmationModal';
 import Spinner from "../components/Spinner";
 import styles from "./InventoryPage.module.css";
-import ConfirmationModal from '../components/ConfirmationModal';
-import { deleteItem } from '../services/itemService';
-
-const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
 function InventoryPage() {
   // Estados da página
   const [items, setItems] = useState([]);
-  const [totalItems, setTotalItems] = useState(0);
+  const [pagination, setPagination] = useState({ count: 0, next: null });
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState(null);
-  const [page, setPage] = useState(1);
-  const [hasNextPage, setHasNextPage] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0); // Para forçar a recarga
 
   // Estados dos modais
-  const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
-  const [selectedItemForMovement, setSelectedItemForMovement] = useState(null);
-  const [isItemModalOpen, setIsItemModalOpen] = useState(false);
-  const [editingItemId, setEditingItemId] = useState(null);
+  const [movementModal, setMovementModal] = useState({ isOpen: false, item: null });
+  const [itemModal, setItemModal] = useState({ isOpen: false, itemId: null });
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, item: null });
 
-  // Busca os itens com paginação
-  const fetchItems = useCallback(async (currentPage = 1) => {
-    const controller = new AbortController();
-    try {
-      setIsLoading(true);
-      setError(null);
-      const response = await axios.get(`${API_URL}/api/items/?page=${currentPage}`, {
-        signal: controller.signal,
-      });
-      
-      // Se for a página 1, substitui os itens
-      if (currentPage === 1) {
-        setItems(response.data.results || []);
-      } else {
-        // Se for outra página, adiciona aos itens existentes
-        setItems(prevItems => [...prevItems, ...(response.data.results || [])]);
-      }
-      
-      setTotalItems(response.data.count || 0);
-      setHasNextPage(response.data.next !== null);
-    } catch (err) {
-      if (!axios.isCancel(err)) {
-        setError("Falha ao carregar os itens.");
-      }
-    } finally {
-      setIsLoading(false);
-    }
-    return () => controller.abort();
-  }, []);
-
-  // Carrega os itens quando a página ou refreshKey muda
+  // Busca inicial e em refresh
   useEffect(() => {
-    fetchItems(page);
-  }, [page, refreshKey, fetchItems]);
+    const controller = new AbortController();
 
-  // Handlers para modais
-  const handleOpenMovementModal = useCallback((item = null) => {
-    setSelectedItemForMovement(item);
-    setIsMovementModalOpen(true);
-  }, []);
+    const fetchInitialItems = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const data = await getItems({ page: 1 }); // Usa o serviço
+        setItems(data.results || []);
+        setPagination({ count: data.count || 0, next: data.next });
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  const handleOpenCreateItemModal = useCallback(() => {
-    setEditingItemId(null);
-    setIsItemModalOpen(true);
-  }, []);
+    fetchInitialItems();
+    return () => controller.abort();
+  }, [refreshKey]); // ✅ Dispara apenas no refreshKey
 
-  const handleOpenEditItemModal = useCallback((item) => {
-    setEditingItemId(item.id);
-    setIsItemModalOpen(true);
-  }, []);
+  // Função para carregar mais itens
+  const handleLoadMore = useCallback(async () => {
+    if (!pagination.next || isLoadingMore) return;
 
-  // Handler de sucesso simplificado
-  const handleFormSuccess = useCallback(() => {
-    setIsItemModalOpen(false);
-    setIsMovementModalOpen(false);
-    // A única coisa que fazemos é mudar a refreshKey.
-    // Isso irá disparar o useEffect para buscar os dados frescos.
-    setRefreshKey((oldKey) => oldKey + 1);
-  }, []);
+    try {
+      setIsLoadingMore(true);
+      setError(null);
+      const nextPageUrl = new URL(pagination.next);
+      const nextPage = nextPageUrl.searchParams.get("page");
+      
+      const data = await getItems({ page: nextPage });
+      
+      setItems(prevItems => [...prevItems, ...(data.results || [])]);
+      setPagination({ count: data.count, next: data.next });
 
-  // Handler para carregar mais itens
-  const handleLoadMore = useCallback(() => {
-    if (hasNextPage && !isLoading) {
-      setPage((prevPage) => prevPage + 1);
+    } catch (err) {
+      toast.error("Não foi possível carregar mais itens.");
+    } finally {
+      setIsLoadingMore(false);
     }
-  }, [hasNextPage, isLoading]);
+  }, [pagination, isLoadingMore]);
 
-  // fluxo de deleção
-  const handleOpenDeleteModal = (item) => {
-    setDeleteTarget(item);
-  };
+  const forceRefresh = () => setRefreshKey(k => k + 1);
 
-  const handleCloseDeleteModal = () => {
-    setDeleteTarget(null);
+  // Handlers para os modais
+  const handleFormSuccess = () => {
+    setItemModal({ isOpen: false, itemId: null });
+    setMovementModal({ isOpen: false, item: null });
+    forceRefresh();
   };
 
   const handleConfirmDelete = useCallback(async () => {
-    if (!deleteTarget) return;
+    if (!deleteModal.item) return;
     
     try {
-      await deleteItem(deleteTarget.id);
-      
-      // ✅ NOTIFICAÇÃO DE SUCESSO
-      toast.success(`Item "${deleteTarget.name}" inativado com sucesso.`);
-
-      handleCloseDeleteModal();
-      setRefreshKey(oldKey => oldKey + 1); // Atualiza a lista
+      await deleteItem(deleteModal.item.id);
+      toast.success(`Item "${deleteModal.item.name}" inativado com sucesso.`);
+      setDeleteModal({ isOpen: false, item: null });
+      forceRefresh();
     } catch (error) {
-      // ✅ NOTIFICAÇÃO DE ERRO
-      toast.error(error.message || "Não foi possível inativar o item.");
-      
-      console.error(error);
-      handleCloseDeleteModal();
+      toast.error(error.message);
+      setDeleteModal({ isOpen: false, item: null });
     }
-  }, [deleteTarget]);
+  }, [deleteModal.item]);
 
-  // Renderização condicional
+  // Renderização condicional do conteúdo
   const renderContent = () => {
-    if (isLoading && page === 1) {
+    if (isLoading) {
       return (
         <div className={styles.loadingContainer}>
           <Spinner size="large" />
@@ -138,13 +105,7 @@ function InventoryPage() {
       return (
         <div className={styles.errorContainer}>
           <p className={styles.errorText}>{error}</p>
-          <button
-            className="button button-primary"
-            onClick={() => {
-              setPage(1);
-              setRefreshKey((old) => old + 1);
-            }}
-          >
+          <button className="button button-primary" onClick={forceRefresh}>
             Tentar Novamente
           </button>
         </div>
@@ -153,11 +114,8 @@ function InventoryPage() {
     if (items.length === 0) {
       return (
         <div className={styles.emptyState}>
-          <p className={styles.emptyStateText}>Nenhum item encontrado.</p>
-          <button
-            className="button button-primary"
-            onClick={handleOpenCreateItemModal}
-          >
+          <p className={styles.emptyStateText}>Nenhum item encontrado no catálogo.</p>
+          <button className="button button-primary" onClick={() => setItemModal({ isOpen: true, itemId: null })}>
             Adicionar Primeiro Item
           </button>
         </div>
@@ -168,22 +126,22 @@ function InventoryPage() {
         <div className={styles.itemList}>
           {items.map((item) => (
             <ItemCard
-              key={`item-${item.id}`}
+              key={item.id} // ✅ UUIDs são chaves perfeitas
               item={item}
-              onAddMovement={handleOpenMovementModal}
-              onEdit={handleOpenEditItemModal}
-              onDelete={handleOpenDeleteModal}
+              onAddMovement={(item) => setMovementModal({ isOpen: true, item })}
+              onEdit={(item) => setItemModal({ isOpen: true, itemId: item.id })}
+              onDelete={(item) => setDeleteModal({ isOpen: true, item })}
             />
           ))}
         </div>
-        {hasNextPage && (
+        {pagination.next && (
           <div className={styles.loadMoreContainer}>
             <button
               className="button button-outline"
               onClick={handleLoadMore}
-              disabled={isLoading}
+              disabled={isLoadingMore}
             >
-              {isLoading ? "Carregando..." : "Carregar Mais Itens"}
+              {isLoadingMore ? "Carregando..." : "Carregar Mais Itens"}
             </button>
           </div>
         )}
@@ -193,58 +151,53 @@ function InventoryPage() {
 
   return (
     <div className={styles.pageContent}>
-      {/* Cabeçalho */}
       <div className={styles.pageHeader}>
         <h1>Itens do Inventário</h1>
         <div className={styles.headerActions}>
           <button
             className="button button-primary"
-            onClick={handleOpenCreateItemModal}
+            onClick={() => setItemModal({ isOpen: true, itemId: null })}
             disabled={isLoading}
           >
             + Adicionar Item
           </button>
           <button
             className="button button-success"
-            onClick={() => handleOpenMovementModal()}
+            onClick={() => setMovementModal({ isOpen: true, item: null })}
             disabled={isLoading}
           >
-            + Adicionar Movimentação
+            + Movimentar Estoque
           </button>
         </div>
       </div>
 
-      {/* Contador de itens */}
       <p className={styles.itemsCount}>
-        {isLoading && page === 1
-          ? "Carregando catálogo..."
-          : `Exibindo ${items.length} de ${totalItems} itens no catálogo.`}
+        {isLoading ? "Buscando informações..." : `Exibindo ${items.length} de ${pagination.count} itens no catálogo.`}
       </p>
       <hr className={styles.divider} />
 
-      {/* Conteúdo principal */}
       {renderContent()}
 
       {/* Modais */}
       <MovementFormModal
-        isOpen={isMovementModalOpen}
-        onClose={() => setIsMovementModalOpen(false)}
+        isOpen={movementModal.isOpen}
+        onClose={() => setMovementModal({ isOpen: false, item: null })}
         onSuccess={handleFormSuccess}
-        selectedItem={selectedItemForMovement}
+        selectedItem={movementModal.item}
       />
 
       <ItemFormModal
-        isOpen={isItemModalOpen}
-        onClose={() => setIsItemModalOpen(false)}
+        isOpen={itemModal.isOpen}
+        onClose={() => setItemModal({ isOpen: false, itemId: null })}
         onSuccess={handleFormSuccess}
-        itemId={editingItemId}
+        itemId={itemModal.itemId}
       />
       <ConfirmationModal
-        isOpen={!!deleteTarget}
-        onClose={handleCloseDeleteModal}
+        isOpen={deleteModal.isOpen}
+        onClose={() => setDeleteModal({ isOpen: false, item: null })}
         onConfirm={handleConfirmDelete}
-        title="Confirmar Exclusão"
-        message={`Você tem certeza que deseja inativar o item "${deleteTarget?.name}"? Ele não poderá ser usado em novas movimentações.`}
+        title="Confirmar Inativação"
+        message={`Você tem certeza que deseja inativar o item "${deleteModal.item?.name}"? Ele não poderá ser usado em novas movimentações.`}
       />
     </div>
   );

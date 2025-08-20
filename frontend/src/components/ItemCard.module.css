@@ -142,3 +142,17 @@
   flex-grow: 1; /* ✅ FAZ ESTA ÁREA CRESCER E EMPURRAR AS AÇÕES PARA BAIXO */
 }
 
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+
+.category {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-transform: uppercase;
+  margin-bottom: 0; /* Remover margem que estava aqui */
+}
