@@ -1,18 +1,18 @@
-// frontend/src/context/AuthContext.jsx - Versão Melhorada
-import React, { createContext, useState, useContext, useEffect } from 'react';
+// frontend/src/context/AuthContext.jsx - Versão Corrigida
+import React, { createContext, useState, useEffect, useMemo, useCallback } from 'react';
+import { login as apiLogin, logout as apiLogout, fetchCurrentUser } from '../services/auth';
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
-
-const AuthContext = createContext(null);
+// eslint-disable-next-line react-refresh/only-export-components
+export const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // Para a verificação inicial da sessão
 
-  // Função centralizada para atualizar o estado de autenticação
-  const updateAuthState = (token, userData) => {
+  // ✅ Função centralizada para atualizar o estado de autenticação (agora com useCallback)
+  const updateAuthState = useCallback((token, userData) => {
     if (token && userData) {
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(userData));
@@ -26,86 +26,69 @@ export function AuthProvider({ children }) {
       setUser(null);
       setIsAuthenticated(false);
     }
-  };
+  }, []); // Dependências vazias pois não depende de nenhum estado externo
 
-  // Verificação inicial da sessão
+  // Verificação inicial da sessão: mais robusta
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const userData = localStorage.getItem('user');
-
-    if (token && userData) {
-      // Verifica se o token ainda é válido
-      axios.defaults.headers.common['Authorization'] = `Token ${token}`;
-      setUser(JSON.parse(userData));
-      setIsAuthenticated(true);
-      axios.get(`${API_URL}/api/me/`)
-        .then(() => {
-          updateAuthState(token, JSON.parse(userData));
-        })
-        .catch(() => {
-          updateAuthState(null, null); // Limpa se o token for inválido
-        })
-        .finally(() => setLoading(false));
-    } else {
+    const checkUserSession = async () => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        axios.defaults.headers.common['Authorization'] = `Token ${token}`;
+        try {
+          // Verifica se o token ainda é válido no backend
+          const currentUser = await fetchCurrentUser();
+          // Atualiza o estado com os dados mais recentes do usuário
+          updateAuthState(token, currentUser);
+        } catch (error) {
+          console.error("Falha ao checar sessão:", error);
+          // Se o token for inválido, limpa tudo
+          updateAuthState(null, null);
+        }
+      }
       setLoading(false);
-    }
-  }, []);
+    };
+    checkUserSession();
+  }, [updateAuthState]); // ✅ Agora updateAuthState é estável
 
-  const login = async (username, password) => {
+  // ✅ FUNÇÃO LOGIN ATUALIZADA
+  const login = useCallback(async (username, password) => {
     try {
-      const response = await axios.post(`${API_URL}/api/login/`, {
-        username,
-        password,
-      });
-      
-      const { token, user: userData } = response.data;
-      updateAuthState(token, userData);
-      return userData;
+      const data = await apiLogin(username, password);
+      // A função de serviço já retorna o token e o usuário.
+      // Agora, simplesmente passamos esses dados para nossa função centralizada.
+      updateAuthState(data.token, data.user);
+      return data.user;
     } catch (error) {
+      // Limpa qualquer estado antigo em caso de falha no login
+      updateAuthState(null, null);
       console.error("Falha no login:", error);
-      throw new Error(
-        error.response?.data?.detail || 
-        error.response?.data?.error || 
-        'Não foi possível fazer o login.'
-      );
+      throw error;
     }
-  };
+  }, [updateAuthState]);
 
-  const logout = async () => {
+  // ✅ FUNÇÃO LOGOUT ATUALIZADA
+  const logout = useCallback(async () => {
     try {
-      // Chama o endpoint de logout do backend se existir
-      await axios.post(`${API_URL}/api/logout/`);
+      await apiLogout(); // Tenta invalidar o token no backend
     } catch (error) {
-      console.error("Erro no logout:", error);
+      console.error("Erro no logout do servidor:", error);
     } finally {
+      // Independentemente do sucesso da API, limpa o estado e o localStorage
       updateAuthState(null, null);
     }
-  };
+  }, [updateAuthState]);
 
-  const value = {
+  const value = useMemo(() => ({
     user,
     isAuthenticated,
     loading,
     login,
     logout,
-    // Adicionando função para atualizar dados do usuário
-    updateUser: (newUserData) => {
-      localStorage.setItem('user', JSON.stringify(newUserData));
-      setUser(newUserData);
-    }
-  };
+  }), [user, isAuthenticated, loading, login, logout]);
 
   return (
     <AuthContext.Provider value={value}>
       {!loading && children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === null) {
-    throw new Error('useAuth deve ser usado dentro de um AuthProvider');
-  }
-  return context;
 }

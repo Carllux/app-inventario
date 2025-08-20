@@ -3,7 +3,7 @@ import React, { useCallback } from 'react';
 import { Outlet, useNavigate, Navigate } from 'react-router-dom';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import FullScreenLoader from './FullScreenLoader'; // Usando nosso loader aprimorado
 import styles from './AuthenticatedLayout.module.css'; // 1. Importe os estilos do módulo
 
