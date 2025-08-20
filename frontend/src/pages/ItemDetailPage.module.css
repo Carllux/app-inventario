@@ -41,6 +41,13 @@
   align-self: flex-end;
 }
 
+.headerActions .button,
+.headerInfo .button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
 .mainContent {
   display: flex;
   flex-direction: column;
