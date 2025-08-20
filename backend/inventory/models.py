@@ -385,7 +385,7 @@ class MovementType(BaseModel):
 
     # Campos Básicos
     code = models.CharField(
-        max_length=10,
+        max_length=20,
         unique=True,
         validators=[RegexValidator(r'^[A-Z0-9_]+$', 'Use apenas letras maiúsculas, números e underscores')],
         help_text="Código único para referência rápida (ex: ENTRADA, DEVSAIDA)"

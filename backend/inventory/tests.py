@@ -1,4 +1,5 @@
 # Django core
+import uuid
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db.models.signals import post_save
@@ -37,64 +38,187 @@ from .models import (
 
 class InventoryTestMixin:
     """
-    Mixin de setup de dados SIMPLIFICADO e CORRETO.
-    Confia nos signals e na arquitetura da aplicação para funcionar.
+    Mixin de setup de dados ISOLADO para testes.
+    Cria dados com prefixos únicos para evitar conflitos com dados reais.
     """
+    
     @classmethod
     def setUpTestData(cls):
         # --- Configurar o Ambiente para os Signals ---
         # Cria a filial e setor padrão que o signal espera encontrar
-        cls.branch_sp = Branch.objects.create(name='Filial Principal')
-        cls.sector_sp = Sector.objects.create(name='Estoque', branch=cls.branch_sp)
+        cls.branch_sp = Branch.objects.create(
+            name='[TEST] Filial Principal', 
+            description='Filial para testes automatizados'
+        )
+        cls.sector_sp = Sector.objects.create(
+            name='[TEST] Estoque', 
+            branch=cls.branch_sp,
+            description='Setor de estoque para testes'
+        )
         
+        # Configura settings do sistema para testes
         settings = SystemSettings.get_solo()
         settings.default_branch = cls.branch_sp
         settings.default_sector = cls.sector_sp
         settings.save()
 
-        # --- Criar Usuários ---
-        # O signal `create_or_update_user_profile` será disparado AUTOMATICAMENTE para cada usuário,
-        # criando seu perfil e associando-o à 'Filial Principal' (branch_sp).
-        cls.admin_user = User.objects.create_superuser('admin', 'admin@test.com', 'password123')
-        cls.normal_user_sp = User.objects.create_user('user_sp', 'sp@test.com', 'password123')
+        # --- Criar Usuários com prefixo único ---
+        cls.admin_user = User.objects.create_superuser(
+            'test_admin', 
+            'test_admin@test.com', 
+            'testpassword123'
+        )
+        cls.normal_user_sp = User.objects.create_user(
+            'test_user_sp', 
+            'test_sp@test.com', 
+            'testpassword123'
+        )
         
         # --- Criar dados para cenários de multi-filial ---
-        cls.branch_rj = Branch.objects.create(name='Filial RJ')
-        cls.normal_user_rj = User.objects.create_user('user_rj', 'rj@test.com', 'password123')
+        cls.branch_rj = Branch.objects.create(
+            name='[TEST] Filial RJ',
+            description='Filial RJ para testes'
+        )
+        cls.normal_user_rj = User.objects.create_user(
+            'test_user_rj', 
+            'test_rj@test.com', 
+            'testpassword123'
+        )
         
         # Atribui manualmente a filial RJ para o usuário do RJ
-        # (pois o signal só atribui a filial padrão)
         cls.normal_user_rj.profile.branches.add(cls.branch_rj)
 
-        # --- Criar Outros Dados de Suporte ---
-        cls.location_sp = Location.objects.create(branch=cls.branch_sp, location_code='SP-A1', name='Prateleira SP')
-        cls.location_rj = Location.objects.create(branch=cls.branch_rj, location_code='RJ-B2', name='Prateleira RJ')
-        cls.category = Category.objects.create(name='Categoria de Teste')
-        cls.supplier = Supplier.objects.create(name='Fornecedor de Teste', country='BR')
-        cls.movement_type_entry = MovementType.objects.create(name='Entrada Padrão', code='ENTRADA', factor=1)
-        cls.movement_type_exit = MovementType.objects.create(name='Saída Padrão', code='SAIDA', factor=-1)
-
-        # --- Criar Itens ---
-        cls.item_sp = Item.objects.create(
-            created_by=cls.admin_user, sku='SKU-SP-001', name='Item de SP', 
-            sale_price=10.00, purchase_price=5.00, branch=cls.branch_sp,
-            category=cls.category, supplier=cls.supplier
+        # --- Criar Outros Dados de Suporte com prefixo único ---
+        cls.location_sp = Location.objects.create(
+            branch=cls.branch_sp, 
+            location_code='TEST-SP-A1', 
+            name='[TEST] Prateleira SP'
         )
+        cls.location_rj = Location.objects.create(
+            branch=cls.branch_rj, 
+            location_code='TEST-RJ-B2', 
+            name='[TEST] Prateleira RJ'
+        )
+        
+        cls.category = Category.objects.create(
+            name='[TEST] Categoria de Teste',
+            description='Categoria para testes automatizados'
+        )
+        
+        cls.supplier = Supplier.objects.create(
+            name='[TEST] Fornecedor de Teste', 
+            country='BR',
+            email='test_fornecedor@test.com'
+        )
+        
+        # --- CORREÇÃO: Códigos de MovementType dentro do limite de 10 caracteres ---
+        cls.movement_type_entry = MovementType.objects.create(
+            name='T Entrada',     # ✅ 9 caracteres (dentro do limite)
+            code='T_ENT',         # ✅ 5 caracteres (dentro do limite de 10)
+            factor=1,
+            description='Tipo de movimento de entrada para testes'
+        )
+        
+        cls.movement_type_exit = MovementType.objects.create(
+            name='T Saida',       # ✅ 7 caracteres  
+            code='T_SAI',         # ✅ 5 caracteres
+            factor=-1,
+            description='Tipo de movimento de saída para testes'
+        )
+
+        # --- Criar Itens com SKUs únicos ---
+        cls.item_sp = Item.objects.create(
+            created_by=cls.admin_user, 
+            sku='TEST-SKU-SP-001', 
+            name='[TEST] Item de SP', 
+            sale_price=10.00, 
+            purchase_price=5.00, 
+            branch=cls.branch_sp,
+            category=cls.category, 
+            supplier=cls.supplier,
+            internal_code='TEST-INT-SP-001'
+        )
+        
         cls.item_rj = Item.objects.create(
-            created_by=cls.admin_user, sku='SKU-RJ-002', name='Item de RJ', 
-            sale_price=20.00, purchase_price=10.00, branch=cls.branch_rj,
-            category=cls.category, supplier=cls.supplier
+            created_by=cls.admin_user, 
+            sku='TEST-SKU-RJ-002', 
+            name='[TEST] Item de RJ', 
+            sale_price=20.00, 
+            purchase_price=10.00, 
+            branch=cls.branch_rj,
+            category=cls.category, 
+            supplier=cls.supplier,
+            internal_code='TEST-INT-RJ-002'
         )
         
         # --- Criar Estoque Inicial ---
-        StockItem.objects.create(item=cls.item_sp, location=cls.location_sp, quantity=100)
-        StockItem.objects.create(item=cls.item_rj, location=cls.location_rj, quantity=50)
+        StockItem.objects.create(
+            item=cls.item_sp, 
+            location=cls.location_sp, 
+            quantity=100
+        )
+        
+        StockItem.objects.create(
+            item=cls.item_rj, 
+            location=cls.location_rj, 
+            quantity=50
+        )
 
         # Recarrega os objetos de usuário para garantir que o perfil está anexado
         cls.admin_user.refresh_from_db()
         cls.normal_user_sp.refresh_from_db()
         cls.normal_user_rj.refresh_from_db()
+
+    @classmethod
+    def create_unique_sku(cls):
+        """Gera um SKU único para testes"""
+        return f"T-SKU-{uuid.uuid4().hex[:6].upper()}"  # ✅ Mais curto
+
+    @classmethod
+    def create_test_user(cls, username_suffix, email_suffix, branches=None):
+        """Cria usuário de teste com configuração controlada"""
+        username = f"test_{username_suffix}"
+        email = f"test_{email_suffix}@test.com"
         
+        user = User.objects.create_user(username, email, 'testpassword123')
+        
+        if branches:
+            user.profile.branches.set(branches)
+        
+        return user
+
+    @classmethod
+    def create_test_item(cls, **kwargs):
+        """Cria item de teste com valores padrão"""
+        defaults = {
+            'sku': cls.create_unique_sku(),
+            'name': f'[TEST] Item {uuid.uuid4().hex[:4]}',  # ✅ Mais curto
+            'sale_price': 10.00,
+            'purchase_price': 5.00,
+            'branch': cls.branch_sp,
+            'category': cls.category,
+            'supplier': cls.supplier,
+            'created_by': cls.admin_user,
+        }
+        defaults.update(kwargs)
+        
+        return Item.objects.create(**defaults)
+
+    @classmethod
+    def create_test_movement_type(cls, **kwargs):
+        """Cria tipo de movimento de teste dentro dos limites"""
+        # Gera sufixos curtos para ficar dentro dos limites
+        suffix = uuid.uuid4().hex[:3].upper()  # 3 caracteres apenas
+        
+        defaults = {
+            'name': f'T Mv {suffix}',      # ✅ Máximo 7 caracteres
+            'code': f'T_{suffix}',         # ✅ Máximo 5 caracteres
+            'factor': 1,
+            'description': f'Tipo de movimento teste {suffix}'
+        }
+        defaults.update(kwargs)
+        
+        return MovementType.objects.create(**defaults)
 """"
 modelo de uso para quando uma classe necessitar de dados adicionais
 class TesteEspecifico(InventoryTestMixin, APITestCase):
