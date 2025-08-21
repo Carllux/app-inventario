@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import Modal from './Modal';
 import FormGroup from './FormGroup';
 import styles from './LocationFormModal.module.css';
+import { handleApiError } from '../utils/errorUtils';
 import toast from 'react-hot-toast';
 
 const initialState = {
@@ -81,16 +82,16 @@ function LocationFormModal({ isOpen, onClose, onSuccess, locationId }) {
         toast.success("Locação atualizada com sucesso!");
         onSuccess(); // No modo de edição, não precisa passar dados
       } else {
-        // ✅ 1. Captura os dados da nova locação retornada pela API
         const newLocation = await createLocation(formData);
         toast.success("Locação criada com sucesso!");
-        // ✅ 2. Passa a nova locação para a página pai
         onSuccess(newLocation); 
       }
       onClose();
     } catch (error) {
-      toast.error("Ocorreu um erro. Verifique os campos.");
-      console.error(error);
+      // ✅ SUBSTITUÍDO: O toast genérico foi trocado pela nossa função inteligente.
+      // Ela irá ler o erro da API e exibir uma mensagem detalhada.
+      handleApiError(error, "Não foi possível salvar a locação.");
+
     } finally {
       setIsLoading(false);
     }

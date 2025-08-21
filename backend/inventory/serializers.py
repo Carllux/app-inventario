@@ -2,6 +2,7 @@
 
 from rest_framework import serializers
 from django.contrib.auth.models import User
+from rest_framework.validators import UniqueTogetherValidator
 from django_countries.serializer_fields import CountryField
 from .models import (
     Branch, Sector, UserProfile,
@@ -54,23 +55,26 @@ class SupplierSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'country', 'is_active']
 
 class LocationSerializer(serializers.ModelSerializer):
-    # ✅ 1. Mude para PrimaryKeyRelatedField para aceitar o ID no POST/PUT
     branch = serializers.PrimaryKeyRelatedField(queryset=Branch.objects.all())
 
     class Meta:
         model = Location
         fields = ['id', 'name', 'location_code', 'branch']
+        
+        # ✅ 2. Adicionar validadores customizados
+        validators = [
+            UniqueTogetherValidator(
+                queryset=Location.objects.all(),
+                fields=['branch', 'location_code'],
+                message="Já existe uma locação com este código nesta filial."
+            )
+        ]
 
-    # ✅ 2. Adicione este método para customizar a saída (leitura)
     def to_representation(self, instance):
-        """
-        Sobrescreve a representação de saída.
-        Na leitura, mostra o nome da filial em vez do ID.
-        """
         representation = super().to_representation(instance)
-        # Substitui o ID da filial pelo seu nome no JSON de resposta
-        representation['branch'] = instance.branch.name 
+        representation['branch'] = instance.branch.name
         return representation
+
 
 class ItemSerializer(serializers.ModelSerializer):
     """Serializador de LEITURA: exibe dados aninhados e calculados."""
