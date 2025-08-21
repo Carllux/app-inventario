@@ -165,8 +165,9 @@ class SectorList(BaseListView):
             queryset = queryset.filter(branch_id=branch_id)
         return queryset.select_related('branch')
 
-class LocationList(BaseListView):
+class LocationList(generics.ListCreateAPIView):
     serializer_class = LocationSerializer
+    permission_classes = [IsAuthenticated] # Mantenha a permissão
     
     def get_queryset(self):
         queryset = Location.objects.filter(is_active=True)
@@ -315,14 +316,16 @@ class StockItemView(BranchFilteredQuerysetMixin, generics.RetrieveUpdateAPIView)
         )
 
 
-class CategoryList(BaseListView):
+class CategoryList(generics.ListCreateAPIView): # ✅ Aplicar a mesma correção
     queryset = Category.objects.filter(is_active=True)
     serializer_class = CategorySerializer
+    permission_classes = [IsAuthenticated]
 
-class SupplierList(BaseListView):
+class SupplierList(generics.ListCreateAPIView): # ✅ Aplicar a mesma correção
     queryset = Supplier.objects.filter(is_active=True)
     serializer_class = SupplierSerializer
-    search_fields = ['name', 'cnpj'] # Permite buscar por nome ou cnpj
+    search_fields = ['name', 'cnpj']
+    permission_classes = [IsAuthenticated]
 
 class BaseDetailView(generics.RetrieveUpdateDestroyAPIView):
     """Classe base para views de detalhe com permissão."""

@@ -8,7 +8,8 @@ function DataTable({
   columns, 
   data, 
   onEdit, // Função para ser chamada ao clicar em editar
-  onDelete // Função para ser chamada ao clicar em deletar
+  onDelete, // Função para ser chamada ao clicar em deletar
+  highlightedId 
 }) {
   if (!data || data.length === 0) {
     return <div className={styles.emptyState}>Nenhum registro encontrado.</div>;
@@ -27,7 +28,7 @@ function DataTable({
         </thead>
         <tbody>
           {data.map((row) => (
-            <tr key={row.id}>
+            <tr key={row.id} className={row.id === highlightedId ? styles.highlighted : ''}>
               {columns.map((col) => (
                 <td key={`${row.id}-${col.accessor}`}>
                   {/* Lógica para renderizar booleano como Sim/Não */}

@@ -1,0 +1,14 @@
+/* frontend/src/pages/LocationsPage.module.css */
+
+.pageContainer {
+  /* Classe de controle para a página */
+}
+
+.contentArea {
+  /* Adiciona um espaço entre o PageHeader e a DataTable */
+  margin-top: var(--space-lg);
+}
+
+/* As classes .errorMessage e .loadingState foram removidas daqui 
+  pois agora são globais, conforme definido em index.css.
+*/

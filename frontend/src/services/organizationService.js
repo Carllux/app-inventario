@@ -30,8 +30,3 @@ export const fetchCategories = async () => {
   const response = await api.get(`/categories/`);
   return response.data.results || response.data;
 };
-
-export const fetchSuppliers = async () => {
-  const response = await api.get(`/suppliers/`);
-  return response.data.results || response.data;
-};

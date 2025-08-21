@@ -53,3 +53,19 @@
   border: 1px solid var(--color-border);
   border-radius: var(--border-radius-lg);
 }
+
+/* Animação para o destaque */
+@keyframes highlight-fade {
+  from {
+    background-color: rgba(0, 123, 255, 0.3); /* Cor de destaque inicial */
+  }
+  to {
+    background-color: transparent; /* Cor final transparente */
+  }
+}
+
+/* Classe aplicada à nova linha */
+.highlighted {
+  /* Aplica a animação, com duração de 2 segundos */
+  animation: highlight-fade 2s ease-out;
+}

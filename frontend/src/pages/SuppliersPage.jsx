@@ -87,11 +87,11 @@ function SuppliersPage() {
         onButtonClick={handleOpenCreateModal}
       />
       
-      {error && <div className={styles.errorMessage}>{error}</div>}
+      {error && <div className="errorMessage">{error}</div>}
       
       <main className={styles.contentArea}>
         {loading ? (
-          <div className={styles.loadingState}>Carregando...</div>
+          <div className="loadingState">Carregando...</div>
         ) : (
           <DataTable 
             columns={columns} 
