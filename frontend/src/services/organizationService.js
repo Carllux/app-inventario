@@ -1,39 +1,37 @@
-import axios from 'axios';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+import api from './api'; 
 
 // Funções para buscar os dados de suporte que os formulários precisam
 // SERVIÇOS DE DADOS ORGANIZACIONAIS (Dropdowns, etc.) ---
 
 export const fetchBranches = async () => {
-  const response = await axios.get(`${API_URL}/api/branches/`);
+  const response = await api.get(`/branches/`);
   return response.data.results || response.data;
 };
 
 export const fetchSectors = async (branchId = null) => {
   const params = branchId ? { branch_id: branchId } : {};
-  const response = await axios.get(`${API_URL}/api/sectors/`, { params });
+  const response = await api.get(`/sectors/`, { params });
   return response.data.results || response.data;
 };
 
 export const fetchLocations = async (branchId = null) => {
   const params = branchId ? { branch_id: branchId } : {};
-  const response = await axios.get(`${API_URL}/api/locations/`, { params });
+  const response = await api.get(`/locations/`, { params });
   return response.data.results || response.data;
 };
 
 export const fetchMovementTypes = async (itemId = null) => {
   const params = itemId ? { item_id: itemId } : {};
-  const response = await axios.get(`${API_URL}/api/movement-types/`, { params });
+  const response = await api.get(`/movement-types/`, { params });
   return response.data.results || response.data;
 };
 
 export const fetchCategories = async () => {
-  const response = await axios.get(`${API_URL}/api/categories/`);
+  const response = await api.get(`/categories/`);
   return response.data.results || response.data;
 };
 
 export const fetchSuppliers = async () => {
-  const response = await axios.get(`${API_URL}/api/suppliers/`);
+  const response = await api.get(`/suppliers/`);
   return response.data.results || response.data;
 };

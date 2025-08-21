@@ -1,6 +1,4 @@
-import axios from 'axios';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+import api from './api'; 
 
 /**
  * Busca a lista paginada de itens da API.
@@ -9,7 +7,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
  */
 export const getItems = async (params = {}) => {
   try {
-    const response = await axios.get(`${API_URL}/api/items/`, { params });
+    const response = await api.get(`items/`, { params });
     return response.data;
   } catch (error) {
     console.error("Erro ao buscar itens:", error.response?.data);
@@ -24,7 +22,7 @@ export const getItems = async (params = {}) => {
  */
 export const createItem = async (itemData) => {
   try {
-    const response = await axios.post(`${API_URL}/api/items/`, itemData, {
+    const response = await api.post(`items/`, itemData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
     return response.data;
@@ -42,7 +40,7 @@ export const createItem = async (itemData) => {
  */
 export const getItemById = async (itemId) => {
   try {
-    const response = await axios.get(`${API_URL}/api/items/${itemId}/`);
+    const response = await api.get(`items/${itemId}/`);
     return response.data;
   } catch (error) {
     console.error(`Erro ao buscar o item ${itemId}:`, error.response?.data);
@@ -58,7 +56,7 @@ export const getItemById = async (itemId) => {
  */
 export const updateItem = async (itemId, itemData) => {
   try {
-    const response = await axios.patch(`${API_URL}/api/items/${itemId}/`, itemData, {
+    const response = await api.patch(`items/${itemId}/`, itemData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
     return response.data;
@@ -76,7 +74,7 @@ export const updateItem = async (itemId, itemData) => {
  */
 export const getItemStockDistribution = async (itemId) => {
   try {
-    const response = await axios.get(`${API_URL}/api/items/${itemId}/stock/`);
+    const response = await api.get(`items/${itemId}/stock/`);
     return response.data.results || response.data;
   } catch (error) {
     console.error(`Erro ao buscar distribuição de estoque para ${itemId}:`, error.response?.data);
@@ -91,7 +89,7 @@ export const getItemStockDistribution = async (itemId) => {
  */
 export const deleteItem = async (itemId) => {
   try {
-    const response = await axios.delete(`${API_URL}/api/items/${itemId}/`);
+    const response = await api.delete(`items/${itemId}/`);
     return response.status;
   } catch (error) {
     console.error(`Erro ao deletar o item ${itemId}:`, error.response?.data);

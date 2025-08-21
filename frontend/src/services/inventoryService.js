@@ -1,6 +1,4 @@
-import axios from 'axios';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+import api from './api'; 
 
 /**
  * Envia os dados de uma nova movimentação para a API.
@@ -9,7 +7,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
  */
 export const createMovement = async (movementData) => {
   try {
-    const response = await axios.post(`${API_URL}/api/movements/`, movementData);
+    const response = await api.post(`/movements/`, movementData);
     return response.data;
   } catch (error) {
     // Lança o erro para ser tratado no componente que chamou a função
@@ -26,14 +24,14 @@ export const createMovement = async (movementData) => {
  */
 export const fetchMovementTypes = async (itemId = null) => {
   try {
-    let url = `${API_URL}/api/movement-types/`;
+    let url = `/movement-types/`;
 
     // Adiciona o parâmetro de filtro na URL se um itemId for passado
     if (itemId) {
       url += `?item_id=${itemId}`;
     }
 
-    const response = await axios.get(url);
+    const response = await api.get(url);
     return response.data.results || response.data; // Suporta paginação se houver
   } catch (error) {
     console.error("Erro ao buscar tipos de movimentação:", error.response?.data);

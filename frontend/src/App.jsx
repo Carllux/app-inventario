@@ -8,6 +8,7 @@ import AuthenticatedLayout from './components/AuthenticatedLayout';
 import LoginPage from './pages/LoginPage';
 import InventoryPage from './pages/InventoryPage';
 import ItemDetailPage from './pages/ItemDetailPage';
+import SuppliersPage from './pages/SuppliersPage';
 import { Toaster } from 'react-hot-toast'; 
 
 function App() {
@@ -41,7 +42,7 @@ function App() {
           
           <Route path="/inventory" element={<InventoryPage />} />
           <Route path="/inventory/:id" element={<ItemDetailPage />} />
-
+          <Route path="/suppliers" element={<SuppliersPage />} />
           
           {/* Futuramente, adicione outras páginas privadas aqui. Ex: */}
           {/* <Route path="/dashboard" element={<DashboardPage />} /> */}
