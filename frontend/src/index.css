@@ -94,6 +94,26 @@ body.dark-theme {
   --color-background: #1c1c1e;
 }
 
+/* Estilos para campos desabilitados no TEMA ESCURO */
+body.dark-theme input:disabled,
+body.dark-theme select:disabled,
+body.dark-theme textarea:disabled {
+  /* Um fundo escuro, mas ligeiramente diferente dos campos ativos */
+  background-color: var(--color-light-hover); 
+  
+  /* Cor do texto para desabilitado, que já é mais suave */
+  color: var(--color-text-muted); 
+
+  /* Cor da borda consistente com o tema */
+  border-color: var(--color-border);
+  
+  /* Indica visualmente que o campo não é clicável */
+  cursor: not-allowed;
+  
+  /* Opcional: uma leve opacidade para reforçar o estado */
+  opacity: 0.7; 
+}
+
 /* Reset e Base */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
