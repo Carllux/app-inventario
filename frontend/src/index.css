@@ -24,6 +24,13 @@
   --text-xl: 1.25rem;
   --text-xxl: 1.75rem;
 
+    /* Layout */
+  --container-max-width: 1200px;
+  --breakpoint-sm: 576px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 992px;
+  --breakpoint-xl: 1200px;
+
   /* Outros */
   --border-radius: 0.25rem;
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
@@ -32,8 +39,22 @@
   --modal-max-width: 50rem; /* 800px */
   --photo-preview-size: 16rem; /* Tamanho da prévia da foto */
   --transition-duration: 0.3s;
+  
 }
 
+/* Padding */
+.p-1 { padding: var(--space-xs); }
+.px-1 { padding-left: var(--space-xs); padding-right: var(--space-xs); }
+.py-1 { padding-top: var(--space-xs); padding-bottom: var(--space-xs); }
+/* ...e assim por diante */
+
+/* Display */
+.d-none { display: none; }
+.d-block { display: block; }
+
+/* Flexbox */
+.justify-center { justify-content: center; }
+.items-center { align-items: center; }
 
 body.light-theme {
   /* Cores */
@@ -88,6 +109,87 @@ body {
 }
 
 
+/* Container do tooltip */
+.tooltip-container {
+  position: relative;
+  display: inline-block;
+  border-bottom: 1px dotted var(--color-text); /* Linha para indicar que há uma dica */
+}
+
+/* O texto do tooltip (escondido por padrão) */
+.tooltip-container .tooltip-text {
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.3s;
+
+  /* Reutilizando as variáveis para o estilo */
+  background-color: var(--color-border); /* Usando uma cor de destaque */
+  color: var(--color-text);
+  text-align: center;
+  padding: var(--space-sm);
+  border-radius: var(--border-radius);
+  
+  /* Posicionamento */
+  width: 160px;
+  position: absolute;
+  z-index: 1;
+  bottom: 125%; /* Posição acima do elemento */
+  left: 50%;
+  margin-left: -80px; /* Metade da largura para centralizar */
+}
+
+/* Exibe o tooltip ao passar o mouse sobre o container */
+.tooltip-container:hover .tooltip-text {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* Estilos para os CAMPOS DE ENTRADA (input e textarea) */
+input,
+textarea {
+  color: var(--color-text);
+  width: 100%;
+  padding: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  background-color: var(--color-white);
+  box-sizing: border-box;
+}
+
+select {
+  /* Remove a aparência padrão do navegador */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+
+  /* Adiciona uma seta customizada como imagem de fundo */
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='currentColor' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right var(--space-sm) center;
+  background-size: 16px 12px;
+  background-color: var(--color-white);
+  color: var(--color-text);
+  
+
+  /* Ajusta o padding para a seta não sobrepor o texto */
+  padding-right: calc(var(--space-sm) * 2 + 16px);
+}
+
+/* Estilos para os RÓTULOS (títulos dos campos) */
+label {
+  color: var(--color-text);
+  display: block; /* Faz com que o rótulo ocupe a linha inteira */
+  margin-bottom: 8px; /* Adiciona um espaço entre o rótulo e o campo abaixo dele */
+}
+
+/* Opcional: Altera também a cor do texto de placeholder (o texto que aparece antes de digitar) */
+/* Estilo para o texto do placeholder em inputs e textareas */
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-text);
+  opacity: 0.6; /* É uma boa prática deixar o placeholder um pouco mais claro que o texto digitado */
+}
+
 hr {
   border: none;
   border-top: 1px solid var(--color-border);
@@ -108,9 +210,16 @@ a:hover {
 
 .container {
   width: 100%;
-  max-width: 1200px;
+  max-width: var(--container-max-width);
   margin: 0 auto;
   padding: 0 var(--space-md);
+}
+
+@media (max-width: var(--breakpoint-md)) {
+  :root {
+    --space-md: 0.75rem;
+    --space-lg: 1rem;
+  }
 }
 
 .flex {
@@ -415,4 +524,11 @@ input:disabled, textarea:disabled, select:disabled {
   content: attr(data-tooltip);
   position: absolute;
   /* ... estilos do tooltip ... */
+}
+
+
+.errorMessage {
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+  margin-top: var(--space-xs);
 }
