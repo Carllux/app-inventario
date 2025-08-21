@@ -50,6 +50,31 @@ export function AuthProvider({ children }) {
     checkUserSession();
   }, [updateAuthState]); // ✅ Agora updateAuthState é estável
 
+  const [selectedBranch, setSelectedBranch] = useState(null);
+
+  // Efeito para definir a filial padrão quando o usuário faz login
+  useEffect(() => {
+    // Se o usuário tem filiais, seleciona a primeira como padrão
+    if (user?.profile?.branches?.length > 0) {
+      // Tenta encontrar uma filial salva no localStorage
+      const savedBranchId = localStorage.getItem('selectedBranchId');
+      const savedBranch = user.profile.branches.find(b => b.id === savedBranchId);
+      setSelectedBranch(savedBranch || user.profile.branches[0]);
+    } else {
+      setSelectedBranch(null);
+    }
+  }, [user]);
+
+  // Função para mudar a filial e salvar a preferência
+  const changeBranch = (branch) => {
+    setSelectedBranch(branch);
+    if (branch) {
+      localStorage.setItem('selectedBranchId', branch.id);
+    } else {
+      localStorage.removeItem('selectedBranchId');
+    }
+  };
+
   // ✅ FUNÇÃO LOGIN ATUALIZADA
   const login = useCallback(async (username, password) => {
     try {
@@ -84,7 +109,10 @@ export function AuthProvider({ children }) {
     loading,
     login,
     logout,
-  }), [user, isAuthenticated, loading, login, logout]);
+    branches: user?.profile?.branches || [],
+    selectedBranch,
+    changeBranch,
+  }), [user, isAuthenticated, loading, login, logout, selectedBranch]);
 
   return (
     <AuthContext.Provider value={value}>

@@ -1,6 +1,7 @@
 // frontend/src/components/Navbar.jsx
 import React from 'react';
 import { Link } from 'react-router-dom';
+import BranchFilter from './BranchFilter'; 
 import styles from './Navbar.module.css';
 import UserMenu from './UserMenu';
 import ThemeToggle from './ThemeToggle';
@@ -11,6 +12,7 @@ function Navbar({ user, onLogout }) {
       <div className={styles.container}>
         <div className={styles.start}>
           {/* Espaço para o Filtro Global de Filial ou Busca */}
+          <BranchFilter />
         </div>
         
         <div className={styles.end}>

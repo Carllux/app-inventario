@@ -1,0 +1,21 @@
+/* frontend/src/components/BranchFilter.module.css */
+
+.filterContainer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.label {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.select {
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  background-color: var(--color-white);
+  min-width: 150px;
+}
