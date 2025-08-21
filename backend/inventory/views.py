@@ -324,6 +324,22 @@ class SupplierList(BaseListView):
     serializer_class = SupplierSerializer
     search_fields = ['name', 'cnpj'] # Permite buscar por nome ou cnpj
 
+class BaseDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Classe base para views de detalhe com permissão."""
+    permission_classes = [IsAuthenticated]
+
+class CategoryDetailView(BaseDetailView):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+
+class SupplierDetailView(BaseDetailView):
+    queryset = Supplier.objects.all()
+    serializer_class = SupplierSerializer
+
+class LocationDetailView(BaseDetailView):
+    queryset = Location.objects.all()
+    serializer_class = LocationSerializer
+
 class ItemStockDistributionView(generics.ListAPIView):
     serializer_class = StockItemSerializer
     permission_classes = [IsAuthenticated]

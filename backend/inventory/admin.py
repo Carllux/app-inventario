@@ -90,9 +90,9 @@ class LocationAdmin(BaseModelAdmin):
 
 @admin.register(Supplier)
 class SupplierAdmin(BaseModelAdmin):
-    list_display = ('name', 'country', 'city')
+    list_display = ('name', 'country', 'city', 'ie')
     list_filter = ('country', 'tax_regime')
-    search_fields = ('name', 'cnpj', 'tax_id')
+    search_fields = ('name', 'cnpj', 'tax_id', 'ie')
 
 @admin.register(Category)
 class CategoryAdmin(BaseModelAdmin):

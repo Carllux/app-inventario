@@ -4,9 +4,9 @@ import { getSuppliers, deleteSupplier } from '../services/supplierService';
 import PageHeader from '../components/PageHeader';
 import DataTable from '../components/DataTable';
 import ConfirmationModal from '../components/ConfirmationModal';
-// import SupplierFormModal from '../components/SupplierFormModal';
+import SupplierFormModal from '../components/SupplierFormModal';
 import toast from 'react-hot-toast';
-import styles from './SuppliersPage.module.css'; // ✅ 1. Importar o CSS Module
+import styles from './SuppliersPage.module.css';
 
 function SuppliersPage() {
   const [suppliers, setSuppliers] = useState([]);
@@ -35,18 +35,7 @@ function SuppliersPage() {
     fetchSuppliers();
   }, [fetchSuppliers]);
 
-  const handleConfirmDelete = async () => {
-    try {
-      await deleteSupplier(deleteTarget.id);
-      toast.success(`Fornecedor "${deleteTarget.name}" deletado com sucesso.`);
-      setDeleteTarget(null);
-      fetchSuppliers();
-    } catch (error) {
-      toast.error("Não foi possível deletar o fornecedor.");
-      console.error(error);
-    }
-  };
-
+  // Handlers para abrir modais
   const handleOpenCreateModal = () => {
     setEditingSupplierId(null);
     setIsFormModalOpen(true);
@@ -61,6 +50,25 @@ function SuppliersPage() {
     setDeleteTarget(supplier);
   };
 
+  // Handler para sucesso no formulário
+  const handleFormSuccess = () => {
+    setIsFormModalOpen(false);
+    fetchSuppliers();
+  };
+  
+  // Handler para confirmar a deleção
+  const handleConfirmDelete = async () => {
+    try {
+      await deleteSupplier(deleteTarget.id);
+      toast.success(`Fornecedor "${deleteTarget.name}" deletado com sucesso.`);
+      setDeleteTarget(null);
+      fetchSuppliers();
+    } catch (error) {
+      toast.error("Não foi possível deletar o fornecedor.");
+      console.error(error);
+    }
+  };
+
   const columns = [
     { header: 'Nome', accessor: 'name' },
     { header: 'País', accessor: 'country' },
@@ -72,7 +80,6 @@ function SuppliersPage() {
   ];
 
   return (
-    // ✅ 2. Aplicar a classe do container principal
     <div className={styles.pageContainer}>
       <PageHeader 
         title="Gerenciamento de Fornecedores"
@@ -80,35 +87,28 @@ function SuppliersPage() {
         onButtonClick={handleOpenCreateModal}
       />
       
-      {error && (
-        // ✅ 3. Aplicar a classe de erro
-        <div className={styles.errorMessage}>
-          {error}
-        </div>
-      )}
+      {error && <div className={styles.errorMessage}>{error}</div>}
       
-      {/* ✅ 4. Aplicar a classe da área de conteúdo */}
       <main className={styles.contentArea}>
         {loading ? (
-          // ✅ 5. Aplicar a classe de carregamento
           <div className={styles.loadingState}>Carregando...</div>
         ) : (
           <DataTable 
             columns={columns} 
             data={suppliers}
+            // ✅ AÇÕES AGORA INTEGRADAS AO DATATABLE
             onEdit={handleOpenEditModal}
             onDelete={handleOpenDeleteModal}
           />
         )}
       </main>
       
-      {/* <SupplierFormModal 
-          isOpen={isFormModalOpen}
-          onClose={() => setIsFormModalOpen(false)}
-          onSuccess={fetchSuppliers}
-          supplierId={editingSupplierId}
-        /> 
-      */}
+      <SupplierFormModal 
+        isOpen={isFormModalOpen}
+        onClose={() => setIsFormModalOpen(false)}
+        onSuccess={handleFormSuccess}
+        supplierId={editingSupplierId}
+      /> 
 
       <ConfirmationModal
         isOpen={!!deleteTarget}

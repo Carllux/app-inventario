@@ -221,6 +221,7 @@ class Supplier(BaseModel, AddressMixin):
     )
     tax_regime = models.CharField(max_length=10, choices=TaxRegime.choices, blank=True, verbose_name="Regime Tributário")
     cnpj = models.CharField(max_length=18, blank=True, verbose_name="CNPJ (se brasileiro)")
+    ie = models.CharField(max_length=18, blank=True, verbose_name="Inscrição estadual (se brasileiro)")
     tax_id = models.CharField(max_length=50, blank=True, verbose_name="ID Fiscal (se estrangeiro)")
     contact_person = models.CharField(max_length=100, blank=True, verbose_name="Pessoa de Contato")
     phone_number = models.CharField(max_length=20, blank=True, verbose_name="Telefone de Contato")
