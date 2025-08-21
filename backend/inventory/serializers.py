@@ -2,7 +2,7 @@
 
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from rest_framework.validators import UniqueTogetherValidator
+from rest_framework.validators import UniqueTogetherValidator, UniqueValidator 
 from django_countries.serializer_fields import CountryField
 from .models import (
     Branch, Sector, UserProfile,
@@ -49,10 +49,14 @@ class CategorySerializer(serializers.ModelSerializer):
 
 class SupplierSerializer(serializers.ModelSerializer):
     country = CountryField(name_only=True) 
+    cnpj = serializers.CharField(
+        validators=[UniqueValidator(queryset=Supplier.objects.all(), message="Já existe um fornecedor com este CNPJ.")],
+        required=False, allow_blank=True # Mantém as propriedades do modelo
+    )
 
     class Meta:
         model = Supplier
-        fields = ['id', 'name', 'country', 'is_active']
+        fields = ['id', 'name', 'cnpj', 'country', 'is_active']
 
 class LocationSerializer(serializers.ModelSerializer):
     branch = serializers.PrimaryKeyRelatedField(queryset=Branch.objects.all())
@@ -84,15 +88,26 @@ class ItemSerializer(serializers.ModelSerializer):
     origin = CountryField(name_only=True, read_only=True)
     total_quantity = serializers.IntegerField(read_only=True)
     is_low_stock = serializers.BooleanField(read_only=True)
-    active = serializers.BooleanField(source='is_active', read_only=True)
+    active = serializers.BooleanField(read_only=True) # source='is_active' foi removido pois o nome do campo é o mesmo da propriedade no modelo.
     created_by = serializers.StringRelatedField(read_only=True)
+
+    # ✅ 1. NOVO: Adiciona o valor "legível" do campo de status.
+    #    A API retornará: "status": "ACTIVE", "status_display": "Ativo"
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    
+    # ✅ 2. NOVO: Expõe a propriedade calculada 'volume' do modelo.
+    volume = serializers.DecimalField(max_digits=22, decimal_places=6, read_only=True)
 
     class Meta:
         model = Item
         fields = [
-            'id', 'sku', 'name', 'status', 'active', 'branch', 'category', 'supplier', 
+            'id', 'sku', 'name', 'status', 'status_display', # ✅ Adicionado
+            'active', 'branch', 'category', 'supplier', 
             'photo', 'brand', 'sale_price', 'unit_of_measure', 'short_description', 'long_description',
-            'total_quantity', 'is_low_stock', 'created_by', 'origin'
+            'total_quantity', 'is_low_stock', 'created_by', 'origin', 
+            'volume', # ✅ Adicionado
+            # ✅ 3. Adicionando campos físicos que estavam faltando na leitura
+            'height', 'width', 'depth', 'weight',
         ]
 
 class ItemCreateUpdateSerializer(serializers.ModelSerializer):
@@ -102,6 +117,8 @@ class ItemCreateUpdateSerializer(serializers.ModelSerializer):
     # Django-countries lida com a conversão do código do país (ex: 'BR')
     origin = CountryField(name_only=True, required=False)
     branch = serializers.PrimaryKeyRelatedField(queryset=Branch.objects.all())
+    category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all(), allow_null=True, required=False)
+    supplier = serializers.PrimaryKeyRelatedField(queryset=Supplier.objects.all(), allow_null=True, required=False)
     class Meta:
         model = Item
         # Lista de campos que o frontend pode ENVIAR
@@ -132,8 +149,8 @@ class StockMovementSerializer(serializers.ModelSerializer):
     user = serializers.StringRelatedField(read_only=True)
     total_moved_value = serializers.ReadOnlyField()
 
-    # Campos para ESCRITA (quando recebemos dados)
-    # Definimos explicitamente para poder modificar seus querysets
+    # O queryset é definido como none() aqui porque será populado dinamicamente
+    # no método __init__ com base nas permissões de filial do usuário.
     item = serializers.PrimaryKeyRelatedField(queryset=Item.objects.none())
     location = serializers.PrimaryKeyRelatedField(queryset=Location.objects.none())
     movement_type = serializers.PrimaryKeyRelatedField(queryset=MovementType.objects.all())

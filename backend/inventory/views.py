@@ -101,13 +101,15 @@ def logout_view(request):
 
 # --- VIEWS DE LISTAGEM PARA SUPORTE AO FRONTEND ---
 
-class BaseListView(generics.ListAPIView):
-    """Classe base para views de listagem com recursos comuns"""
+class BaseListView(generics.ListCreateAPIView): # ✅ 1. Mudar para ListCreateAPIView
+    """Classe base para views de listagem E CRIAÇÃO com recursos comuns"""
     permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination # ✅ 2. Adicionar paginação padrão
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    ordering_fields = ['name', 'id']
+    
+    ordering = ['-updated_at'] 
+    ordering_fields = ['name', 'created_at', 'updated_at'] 
     search_fields = ['name']
-    ordering = ['name']
 
 class BranchList(BaseListView):
     serializer_class = BranchSerializer
@@ -115,7 +117,6 @@ class BranchList(BaseListView):
     def get_queryset(self):
         return Branch.objects.filter(is_active=True).select_related('manager')
     
-# backend/inventory/views.py (ou em um novo arquivo mixins.py)
 
 class BranchFilteredQuerysetMixin:
     """
@@ -194,16 +195,17 @@ class MovementTypeList(BaseListView):
 
 # --- VIEWS PRINCIPAIS DA APLICAÇÃO ---
 
-class ItemListCreateView(generics.ListCreateAPIView):
+class ItemListCreateView(BranchFilteredQuerysetMixin, generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['sku', 'name', 'brand']
+    branch_filter_field = 'branch__in' # Diz ao mixin qual campo filtrar
     filterset_fields = {
         'category': ['exact'],
         'supplier': ['exact'],
         'branch': ['exact'],
-        'stock_items__location': ['exact'],  # mantém compatibilidade com filtros DRF
+        'stock_items__location': ['exact'],
     }
 
     def get_serializer_class(self):
@@ -212,33 +214,35 @@ class ItemListCreateView(generics.ListCreateAPIView):
         return ItemSerializer
 
     def get_queryset(self):
+        # --- LÓGICA ESPECÍFICA QUE PERMANECE ---
+        # PASSO 1: Define o queryset base dinamicamente.
+        # Esta lógica é específica desta view (admins veem soft-deleted).
         user = self.request.user
+        base_queryset = Item.all_objects.all() if user.is_staff else Item.objects.all()
+        
+        # Atribui o queryset base para que o `super().get_queryset()` do Mixin possa encontrá-lo.
+        self.queryset = base_queryset
+        
+        # --- LÓGICA GENÉRICA QUE É MOVIDA PARA O MIXIN ---
+        # PASSO 2: Chama o `get_queryset` do Mixin (via super).
+        # Ele vai pegar o self.queryset que acabamos de definir e aplicar o filtro de filial.
+        queryset_filtrado_por_filial = super().get_queryset()
 
-        # PASSO 1: queryset base (staff vê tudo, normal vê só ativos)
-        queryset = Item.all_objects.all() if user.is_staff else Item.objects.all()
-
-        # PASSO 2: aplica permissão de filial para usuários comuns
+        # --- LÓGICA ESPECÍFICA QUE PERMANECE ---
+        # PASSO 3: Aplica a lógica de validação de localização, que é específica desta view.
         if not (user.is_staff or user.is_superuser):
-            try:
-                user_branches = user.profile.branches.all()
-                if not user_branches.exists():
-                    return queryset.none()
+            location_id = self.request.query_params.get("stock_items__location")
+            if location_id:
+                try:
+                    # Tenta buscar a filial do usuário. Se não tiver, user_branches será vazio.
+                    user_branches = user.profile.branches.all()
+                    if not Location.objects.filter(id=location_id, branch__in=user_branches).exists():
+                        return queryset_filtrado_por_filial.none()
+                except UserProfile.DoesNotExist:
+                    return queryset_filtrado_por_filial.none()
 
-                queryset = queryset.filter(branch__in=user_branches)
-
-                # 🔥 PASSO EXTRA: validar filtro por localização
-                location_id = self.request.query_params.get("stock_items__location") \
-                               or self.request.query_params.get("location")
-                if location_id:
-                    # Se a location não pertence a nenhuma filial do usuário → bloqueia
-                    if not Location.objects.filter(id=location_id, branch__in=user_branches, deleted_at__isnull=True).exists():
-                        return queryset.none()
-
-            except UserProfile.DoesNotExist:
-                return queryset.none()
-
-        # PASSO 3: otimizações de query
-        return queryset.select_related("branch", "category", "supplier").distinct()
+        # PASSO 4: Adiciona otimizações de query.
+        return queryset_filtrado_por_filial.select_related("branch", "category", "supplier").distinct()
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
@@ -256,6 +260,7 @@ class ItemListCreateView(generics.ListCreateAPIView):
 class ItemDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
     lookup_field = 'pk' 
+    
 
     def get_serializer_class(self):
         if self.request.method in ['PUT', 'PATCH']:
@@ -321,7 +326,7 @@ class CategoryList(generics.ListCreateAPIView): # ✅ Aplicar a mesma correção
     serializer_class = CategorySerializer
     permission_classes = [IsAuthenticated]
 
-class SupplierList(generics.ListCreateAPIView): # ✅ Aplicar a mesma correção
+class SupplierList(BaseListView, generics.ListCreateAPIView): # ✅ Aplicar a mesma correção
     queryset = Supplier.objects.filter(is_active=True)
     serializer_class = SupplierSerializer
     search_fields = ['name', 'cnpj']
