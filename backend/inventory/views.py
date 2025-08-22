@@ -1,6 +1,7 @@
 # backend/inventory/views.py
 
 from django.http import Http404
+from django_countries import countries
 from rest_framework import generics, filters, status, serializers
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.pagination import PageNumberPagination
@@ -20,7 +21,7 @@ from .models import (
 # Bloco de import unificado para serializadores
 from .serializers import (
     CategorySerializer, StockItemSerializer, SupplierSerializer, UserSerializer, BranchSerializer, SectorSerializer, LocationSerializer,
-    ItemSerializer, MovementTypeSerializer, StockMovementSerializer, ItemCreateUpdateSerializer 
+    ItemSerializer, MovementTypeSerializer, StockMovementSerializer, ItemCreateUpdateSerializer, SupplierCreateUpdateSerializer, 
 )
 import logging
 logger = logging.getLogger(__name__)
@@ -332,6 +333,11 @@ class SupplierList(BaseListView, generics.ListCreateAPIView): # ✅ Aplicar a me
     search_fields = ['name', 'cnpj']
     permission_classes = [IsAuthenticated]
 
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return SupplierCreateUpdateSerializer
+        return SupplierSerializer
+
 class BaseDetailView(generics.RetrieveUpdateDestroyAPIView):
     """Classe base para views de detalhe com permissão."""
     permission_classes = [IsAuthenticated]
@@ -342,7 +348,12 @@ class CategoryDetailView(BaseDetailView):
 
 class SupplierDetailView(BaseDetailView):
     queryset = Supplier.objects.all()
-    serializer_class = SupplierSerializer
+    
+    # ✅ Usa o serializador correto para cada método HTTP
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return SupplierCreateUpdateSerializer
+        return SupplierSerializer
 
 class LocationDetailView(BaseDetailView):
     queryset = Location.objects.all()
@@ -367,3 +378,19 @@ class ItemStockDistributionView(generics.ListAPIView):
 
         # Caso contrário, retorna os estoques do item
         return StockItem.objects.filter(item__pk=item_pk).order_by("location__name")
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated]) # Protegido por autenticação
+def country_list_view(request):
+    """
+    Retorna uma lista de todos os países disponíveis com código, nome e URL da bandeira.
+    """
+    country_data = [
+        {
+            "code": code,
+            "name": name,
+            "flag_url": f"/static/flags/4x3/{code.lower()}.svg" # Caminho para as bandeiras estáticas
+        }
+        for code, name in list(countries)
+    ]
+    return Response(country_data)

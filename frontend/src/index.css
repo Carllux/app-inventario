@@ -73,6 +73,8 @@ body.light-theme {
   --color-text-muted: #6c757d;
   --color-border: #dee2e6;
   --color-background: #f8f9fa;
+  --color-primary-light: rgba(0, 123, 255, 0.1); /* Para estados selecionados/hover */
+  --color-focus-ring: rgba(0, 123, 255, 0.25); /* Para anéis de foco consistentes */
 }
 
 /* TEMA ESCURO */
@@ -92,6 +94,8 @@ body.dark-theme {
   --color-text-muted: #a1a1a3;
   --color-border: #444446;
   --color-background: #1c1c1e;
+  --color-primary-light: rgba(58, 156, 255, 0.15);
+  --color-focus-ring: rgba(58, 156, 255, 0.3);
 }
 
 /* Estilos para campos desabilitados no TEMA ESCURO */
@@ -568,4 +572,13 @@ input:disabled, textarea:disabled, select:disabled {
   color: var(--color-text-muted);
   font-size: 1.1rem;
   min-height: 200px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-md);
+  margin-top: var(--space-lg);
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--color-border);
 }

@@ -16,6 +16,7 @@ function SuppliersPage() {
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [editingSupplierId, setEditingSupplierId] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [highlightedId, setHighlightedId] = useState(null);
 
   const fetchSuppliers = useCallback(async () => {
     try {
@@ -35,7 +36,6 @@ function SuppliersPage() {
     fetchSuppliers();
   }, [fetchSuppliers]);
 
-  // Handlers para abrir modais
   const handleOpenCreateModal = () => {
     setEditingSupplierId(null);
     setIsFormModalOpen(true);
@@ -50,13 +50,14 @@ function SuppliersPage() {
     setDeleteTarget(supplier);
   };
 
-  // Handler para sucesso no formulário
-  const handleFormSuccess = () => {
+  const handleFormSuccess = (newSupplier) => {
     setIsFormModalOpen(false);
     fetchSuppliers();
+    if (newSupplier && newSupplier.id) {
+      setHighlightedId(newSupplier.id);
+    }
   };
   
-  // Handler para confirmar a deleção
   const handleConfirmDelete = async () => {
     try {
       await deleteSupplier(deleteTarget.id);
@@ -69,9 +70,15 @@ function SuppliersPage() {
     }
   };
 
+  // ✅ CORREÇÃO: A definição de colunas foi ajustada para lidar com o objeto 'country'.
   const columns = [
     { header: 'Nome', accessor: 'name' },
-    { header: 'País', accessor: 'country' },
+    { 
+      header: 'País', 
+      accessor: 'country',
+      // Diz à DataTable para pegar o objeto 'country' e renderizar apenas a propriedade '.name'.
+      cell: (country) => country ? country.name : 'N/A'
+    },
     { 
       header: 'Ativo', 
       accessor: 'is_active',
@@ -96,9 +103,9 @@ function SuppliersPage() {
           <DataTable 
             columns={columns} 
             data={suppliers}
-            // ✅ AÇÕES AGORA INTEGRADAS AO DATATABLE
             onEdit={handleOpenEditModal}
             onDelete={handleOpenDeleteModal}
+            highlightedId={highlightedId}
           />
         )}
       </main>
@@ -110,11 +117,12 @@ function SuppliersPage() {
         supplierId={editingSupplierId}
       /> 
 
-      <ConfirmationModal
+     <ConfirmationModal
         isOpen={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleConfirmDelete}
         title="Confirmar Exclusão"
+        // ✅ CORREÇÃO: Usando optional chaining (?.) para acessar '.name' de forma segura.
         message={`Você tem certeza que deseja deletar o fornecedor "${deleteTarget?.name}"?`}
       />
     </div>

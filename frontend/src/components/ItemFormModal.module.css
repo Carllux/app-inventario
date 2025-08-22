@@ -92,15 +92,6 @@ legend {
   gap: var(--space-md);
 }
 
-.formActions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-md);
-  margin-top: var(--space-lg);
-  padding-top: var(--space-lg);
-  border-top: 1px solid var(--color-border);
-}
-
 /* Seção de Foto */
 .photoSection {
   display: flex;

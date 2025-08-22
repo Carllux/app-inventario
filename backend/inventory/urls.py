@@ -2,7 +2,7 @@ from django.urls import path
 from .views import (
     CategoryList, ItemDetailView, ItemListCreateView, CustomAuthToken, StockMovementCreate, 
     LocationList, MovementTypeList, SupplierList, user_profile_view, logout_view, ItemStockDistributionView,
-    SupplierDetailView, CategoryDetailView, LocationDetailView,
+    SupplierDetailView, CategoryDetailView, LocationDetailView, country_list_view,
 )
 
 urlpatterns = [
@@ -25,5 +25,7 @@ urlpatterns = [
     path('suppliers/<uuid:pk>/', SupplierDetailView.as_view(), name='supplier-detail'),
     path('categories/<uuid:pk>/', CategoryDetailView.as_view(), name='category-detail'),
     path('locations/<uuid:pk>/', LocationDetailView.as_view(), name='location-detail'),
+
+    path('utils/countries/', country_list_view, name='country-list'),
 
 ]

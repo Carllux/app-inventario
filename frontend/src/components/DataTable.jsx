@@ -7,8 +7,8 @@ import styles from './DataTable.module.css';
 function DataTable({ 
   columns, 
   data, 
-  onEdit, // Função para ser chamada ao clicar em editar
-  onDelete, // Função para ser chamada ao clicar em deletar
+  onEdit,
+  onDelete,
   highlightedId 
 }) {
   if (!data || data.length === 0) {
@@ -31,10 +31,13 @@ function DataTable({
             <tr key={row.id} className={row.id === highlightedId ? styles.highlighted : ''}>
               {columns.map((col) => (
                 <td key={`${row.id}-${col.accessor}`}>
-                  {/* Lógica para renderizar booleano como Sim/Não */}
-                  {typeof row[col.accessor] === 'boolean'
-                    ? (row[col.accessor] ? 'Sim' : 'Não')
-                    : (row[col.accessor] || 'N/A')}
+                  {/* ✅ LÓGICA DE RENDERIZAÇÃO APRIMORADA */}
+                  {/* Se a coluna tem uma função 'cell', usa ela para renderizar. */}
+                  {col.cell
+                    ? col.cell(row[col.accessor])
+                    // Senão, usa o comportamento padrão que você já tinha.
+                    : (row[col.accessor] || 'N/A')
+                  }
                 </td>
               ))}
               {(onEdit || onDelete) && (

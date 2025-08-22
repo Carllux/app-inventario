@@ -135,7 +135,7 @@ const ItemDetailPage = () => {
                   <Detail label="Categoria" value={item.category?.name} />
                   <Detail label="Marca" value={item.brand} />
                   <Detail label="Fornecedor" value={item.supplier?.name} />
-                  <Detail label="País de Origem" value={item.origin} />
+                  <Detail label="País de Origem" value={item.origin?.name}  />
                   {/* ✅ 5. Novos campos de detalhes adicionados */}
                   <Detail label="Unidade de Medida" value={item.unit_of_measure} />
                   <Detail label="Garantia" value={item.warranty_days ? `${item.warranty_days} dias` : 'N/A'} />

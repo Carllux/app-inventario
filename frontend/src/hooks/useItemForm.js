@@ -1,12 +1,9 @@
 // frontend/src/hooks/useItemForm.js
 import { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import api from '../services/api'; // ✅ 1. Importar a instância 'api'
 import { createItem, updateItem, getItemById } from '../services/itemService';
-import { toast } from 'react-hot-toast'; 
+import { toast } from 'react-hot-toast';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
-
-// Função geradora: Cria um objeto de formulário limpo e completo
 const createInitialFormState = () => ({
   sku: '',
   name: '',
@@ -23,13 +20,13 @@ const createInitialFormState = () => ({
   internal_code: '',
   manufacturer_code: '',
   weight: '',
-  origin: '',
+  origin: 'BR', // O valor inicial deve ser uma string vazia
   cfop: '',
   ean: '',
-  // Adicione aqui quaisquer outros campos do formulário
 });
 
-export function useItemForm(isOpen, itemId, onSuccess) {
+export function useItemForm(isOpen, itemId) { // onSuccess e onClose podem ser removidos dos argumentos diretos
+  const isEditMode = itemId != null;
   const [formData, setFormData] = useState(createInitialFormState());
   const [categories, setCategories] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
@@ -39,11 +36,9 @@ export function useItemForm(isOpen, itemId, onSuccess) {
   const [photo, setPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState('');
 
-  const isEditMode = itemId != null;
 
   useEffect(() => {
     if (!isOpen) {
-      // Limpa os estados quando o modal é fechado
       setFormData(createInitialFormState());
       setError('');
       setPhoto(null);
@@ -56,21 +51,27 @@ export function useItemForm(isOpen, itemId, onSuccess) {
 
     const fetchDependencies = async () => {
       try {
+        // ✅ 1. Usar a instância 'api' para garantir a autenticação
         const [catRes, supRes] = await Promise.all([
-          axios.get(`${API_URL}/api/categories/`),
-          axios.get(`${API_URL}/api/suppliers/`),
+          api.get('/categories/'),
+          api.get('/suppliers/'),
         ]);
         setCategories(catRes.data.results || catRes.data);
         setSuppliers(supRes.data.results || supRes.data);
 
         if (isEditMode) {
           const itemData = await getItemById(itemId);
-          // Mapeamento dinâmico para preencher todos os campos
           const initialData = createInitialFormState();
+
           Object.keys(initialData).forEach(key => {
-            if (key === 'category' || key === 'supplier') {
+            if (itemData[key] === null || itemData[key] === undefined) return;
+
+            // ✅ 2. Tratar todos os campos de relação e o campo de país
+            if (key === 'category' || key === 'supplier' || key === 'branch') {
               initialData[key] = itemData[key]?.id || '';
-            } else if (itemData[key] !== null && itemData[key] !== undefined) {
+            } else if (key === 'origin') {
+              initialData[key] = itemData[key]?.code || ''; // Pega o .code para o país
+            } else {
               initialData[key] = itemData[key];
             }
           });
@@ -80,7 +81,7 @@ export function useItemForm(isOpen, itemId, onSuccess) {
             setPhotoPreview(itemData.photo);
           }
         } else {
-          setFormData(createInitialFormState()); // Reseta para o estado limpo
+          setFormData(createInitialFormState());
         }
 
       } catch (err) {
@@ -111,59 +112,47 @@ export function useItemForm(isOpen, itemId, onSuccess) {
     }
   }, []);
 
-const handleSubmit = useCallback((onSuccess, onClose) => async (e) => {
-  e.preventDefault();
-  setIsSubmitting(true);
-  setError('');
+  // ✅ 3. Otimizado: remove 'formData' e 'photo' das dependências
+  const handleSubmit = useCallback((onSuccess, onClose) => async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setError('');
 
-  try {
-    const formDataToSend = new FormData();
-    
-    // Adiciona todos os campos do formulário ao FormData
-    Object.entries(formData).forEach(([key, value]) => {
-      // Envia o campo apenas se não for nulo, indefinido ou uma string vazia
-      if (value !== null && value !== undefined && value !== '') {
-        formDataToSend.append(key, value);
+    try {
+      const formDataToSend = new FormData();
+      
+      Object.entries(formData).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && value !== '') {
+          formDataToSend.append(key, value);
+        }
+      });
+
+      if (photo) {
+        formDataToSend.append('photo', photo);
       }
-    });
 
-    // ✅ CORREÇÃO: Adiciona a foto (se uma nova foi selecionada)
-    if (photo) {
-      formDataToSend.append('photo', photo);
+      let savedItem;
+      if (isEditMode) {
+        savedItem = await updateItem(itemId, formDataToSend);
+        toast.success(`Item "${savedItem.name}" atualizado com sucesso!`);
+      } else {
+        savedItem = await createItem(formDataToSend);
+        toast.success(`Item "${savedItem.name}" criado com sucesso!`);
+      }
+      
+      onSuccess();
+      onClose();
+      
+    } catch (err) {
+      setError(err.message || "Erro ao salvar o item");
+      toast.error(err.message || "Ocorreu um erro ao salvar.");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    let savedItem;
-    if (isEditMode) {
-      savedItem = await updateItem(itemId, formDataToSend);
-      toast.success(`Item "${savedItem.name}" atualizado com sucesso!`);
-    } else {
-      savedItem = await createItem(formDataToSend);
-      toast.success(`Item "${savedItem.name}" criado com sucesso!`);
-    }
-    
-    onSuccess();
-    onClose();
-    
-  } catch (err) {
-    setError(err.message || "Erro ao salvar o item");
-    toast.error(err.message || "Ocorreu um erro ao salvar.");
-  } finally {
-    setIsSubmitting(false);
-  }
-}, [formData, photo, isEditMode, itemId]);// onSuccess e onClose saem das dependências
-
+  }, [formData, isEditMode, itemId, photo]); // Dependências estáveis
 
   return {
-    formData,
-    error,
-    isLoading,
-    isSubmitting,
-    categories,
-    suppliers,
-    isEditMode,
-    photoPreview,
-    handleChange,
-    handlePhotoChange,
-    handleSubmit
+    formData, error, isLoading, isSubmitting, categories, suppliers,
+    isEditMode, photoPreview, handleChange, handlePhotoChange, handleSubmit
   };
 }

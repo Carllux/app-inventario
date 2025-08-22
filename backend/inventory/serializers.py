@@ -22,6 +22,11 @@ class SectorSerializer(serializers.ModelSerializer):
         model = Sector
         fields = ['id', 'name']
 
+class CountrySerializer(serializers.Serializer):
+    """Um serializador simples para representar um país com código e nome."""
+    code = serializers.CharField(max_length=2)
+    name = serializers.CharField()
+
 class UserProfileSerializer(serializers.ModelSerializer):
     # Usamos serializadores aninhados para mostrar nomes em vez de IDs
     branches = BranchSerializer(many=True, read_only=True)
@@ -48,15 +53,37 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = ['id', 'name']
 
 class SupplierSerializer(serializers.ModelSerializer):
-    country = CountryField(name_only=True) 
+    """Serializador de LEITURA para Fornecedores."""
+    # ✅ CORREÇÃO: Usa o CountrySerializer para retornar o objeto {code, name}
+    country = CountrySerializer(read_only=True)
+
+    class Meta:
+        model = Supplier
+        fields = [
+            'id', 'name', 'cnpj', 'country', 'is_active', 'tax_regime', 'ie',
+            'contact_person', 'phone_number', 'email', 'postal_code',
+            'address_line_1', 'city', 'state'
+        ]
+
+class SupplierCreateUpdateSerializer(serializers.ModelSerializer):
+    """Serializador de ESCRITA para Fornecedores."""
+    # ✅ Garante que a API espere o código do país ('BR') para escrita
+    country = serializers.CharField(max_length=2, required=False, allow_blank=True)
+    
+    # Adiciona o validador de CNPJ único aqui
     cnpj = serializers.CharField(
         validators=[UniqueValidator(queryset=Supplier.objects.all(), message="Já existe um fornecedor com este CNPJ.")],
-        required=False, allow_blank=True # Mantém as propriedades do modelo
+        required=False, allow_blank=True
     )
 
     class Meta:
         model = Supplier
-        fields = ['id', 'name', 'cnpj', 'country', 'is_active']
+        # Lista de todos os campos que o frontend pode enviar
+        fields = [
+            'name', 'country', 'tax_regime', 'cnpj', 'ie', 'contact_person',
+            'phone_number', 'email', 'postal_code', 'address_line_1', 'city', 'state'
+        ]
+
 
 class LocationSerializer(serializers.ModelSerializer):
     branch = serializers.PrimaryKeyRelatedField(queryset=Branch.objects.all())
@@ -85,7 +112,7 @@ class ItemSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
     supplier = SupplierSerializer(read_only=True)
     branch = BranchSerializer(read_only=True)
-    origin = CountryField(name_only=True, read_only=True)
+    origin = CountrySerializer(read_only=True) 
     total_quantity = serializers.IntegerField(read_only=True)
     is_low_stock = serializers.BooleanField(read_only=True)
     active = serializers.BooleanField(read_only=True) # source='is_active' foi removido pois o nome do campo é o mesmo da propriedade no modelo.
@@ -114,11 +141,11 @@ class ItemCreateUpdateSerializer(serializers.ModelSerializer):
     """Serializador de ESCRITA: espera IDs (PKs) para relações."""
     created_by = serializers.PrimaryKeyRelatedField(read_only=True)
     
-    # Django-countries lida com a conversão do código do país (ex: 'BR')
-    origin = CountryField(name_only=True, required=False)
     branch = serializers.PrimaryKeyRelatedField(queryset=Branch.objects.all())
     category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all(), allow_null=True, required=False)
     supplier = serializers.PrimaryKeyRelatedField(queryset=Supplier.objects.all(), allow_null=True, required=False)
+    # Django-countries lida com a conversão do código do país (ex: 'BR')
+    origin = serializers.CharField(max_length=2, required=False, allow_blank=True)
     class Meta:
         model = Item
         # Lista de campos que o frontend pode ENVIAR
