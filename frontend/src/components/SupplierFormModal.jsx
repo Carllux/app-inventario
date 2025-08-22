@@ -4,6 +4,7 @@ import { useSupplierForm } from '../hooks/useSupplierForm';
 import Modal from './Modal';
 import FormGroup from './FormGroup';
 import CountrySelect from './CountrySelect';
+import CnpjInput from './CnpjInput';
 import styles from './SupplierFormModal.module.css';
 
 const taxRegimeOptions = [
@@ -78,10 +79,9 @@ function SupplierFormModal({ isOpen, onClose, onSuccess, supplierId }) {
             </FormGroup>
 
             <FormGroup label="CNPJ" error={errors.cnpj}>
-              <input
-                type="text"
+              <CnpjInput
                 name="cnpj"
-                value={formData.cnpj || ''}
+                value={formData.cnpj}
                 onChange={handleChange}
                 disabled={isSubmitting}
               />
