@@ -1,0 +1,16 @@
+/* frontend/src/components/FlagRenderer.module.css */
+.flagContainer {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.flagIcon {
+  width: 24px !important;  /* Usamos !important para sobrescrever estilos inline se necessário */
+  height: 18px !important;
+  border: 1px solid var(--color-border);
+}
+
+.countryName {
+  font-size: var(--text-base);
+}

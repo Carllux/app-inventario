@@ -23,6 +23,19 @@
   height: 200px;
   overflow: hidden;
   background-color: var(--color-light);
+  position: relative;
+}
+
+.flagOverlay {
+  position: absolute;
+  bottom: var(--space-sm);
+  left: var(--space-sm);
+  
+  /* Estilo para dar um fundo e legibilidade */
+  background-color: rgba(0, 0, 0, 0.5);
+  padding: var(--space-xs);
+  border-radius: var(--border-radius);
+  display: flex;
 }
 
 .image {

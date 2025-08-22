@@ -5,6 +5,7 @@ import PageHeader from '../components/PageHeader';
 import DataTable from '../components/DataTable';
 import ConfirmationModal from '../components/ConfirmationModal';
 import SupplierFormModal from '../components/SupplierFormModal';
+import FlagRenderer from '../components/FlagRenderer'; 
 import toast from 'react-hot-toast';
 import styles from './SuppliersPage.module.css';
 
@@ -73,11 +74,11 @@ function SuppliersPage() {
   // ✅ CORREÇÃO: A definição de colunas foi ajustada para lidar com o objeto 'country'.
   const columns = [
     { header: 'Nome', accessor: 'name' },
-    { 
+     { 
       header: 'País', 
       accessor: 'country',
-      // Diz à DataTable para pegar o objeto 'country' e renderizar apenas a propriedade '.name'.
-      cell: (country) => country ? country.name : 'N/A'
+      // ✅ 2. Usar o FlagRenderer para exibir o país
+      cell: (country) => <FlagRenderer country={country} showName={true}/>
     },
     { 
       header: 'Ativo', 

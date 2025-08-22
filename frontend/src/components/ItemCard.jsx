@@ -6,6 +6,7 @@ import classNames from 'classnames';
 import { FiEdit2, FiTrash2, FiPlusCircle } from 'react-icons/fi';
 import Detail from './Detail';
 import styles from './ItemCard.module.css';
+import FlagRenderer from './FlagRenderer';
 
 // Componente de Badge para o Status
 const StatusBadge = ({ status }) => {
@@ -39,15 +40,22 @@ function ItemCard({ item, onAddMovement, onEdit, onDelete }) {
       <Link to={`/inventory/${item.id}`} state={{ item: item }} className={styles.clickableArea}>
         {item.is_low_stock && <div className={styles.lowStockAlert}>ESTOQUE BAIXO</div>}
 
-        {item.photo ? (
-          <div className={styles.imageContainer}>
+        {/* O container da imagem agora engloba a imagem e o overlay da bandeira */}
+        <div className={styles.imageContainer}>
+          {item.photo ? (
             <img src={item.photo} alt={item.name} className={styles.image} loading="lazy" />
+          ) : (
+            <div className={styles.imagePlaceholder}>
+              <span>Sem Imagem</span>
+            </div>
+          )}
+
+          {/* ✅ 1. Adiciona o FlagRenderer aqui, dentro do container da imagem */}
+          {/* Ele só será renderizado se o item tiver um país de origem. */}
+          <div className={styles.flagOverlay}>
+            <FlagRenderer country={item.origin} />
           </div>
-        ) : (
-          <div className={styles.imagePlaceholder}>
-            <span>Sem Imagem</span>
-          </div>
-        )}
+        </div>
 
         <div className={styles.content}>
           <div className={styles.header}>
