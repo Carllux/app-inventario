@@ -1,17 +1,38 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { 
-  FiGrid, FiBox, FiTruck, FiMapPin,
+  FiGrid, FiPackage, FiUsers, FiSettings,
   FiChevronLeft, FiChevronRight
 } from 'react-icons/fi';
 import classNames from 'classnames';
-import styles from './Sidebar.module.css'; // ✅ Importe os estilos
+import styles from './Sidebar.module.css';
+import NavDropdown from './NavDropdown'; // ✅ 1. Importar o novo componente
 
+// ✅ 2. A nova estrutura de dados aninhada que definimos no Passo 1
 const navLinks = [
-  { to: "/dashboard", icon: <FiGrid />, text: "Dashboard" },
-  { to: "/inventory", icon: <FiBox />, text: "Inventário" },
-  { to: "/suppliers", icon: <FiTruck />, text: "Fornecedores" },
-  { to: "/locations", icon: <FiMapPin />, text: "Locações" },
+  { type: 'link', to: "/dashboard", icon: <FiGrid />, text: "Dashboard" },
+  {
+    type: 'menu', icon: <FiPackage />, text: "Catálogo",
+    subLinks: [
+      { to: "/inventory", text: "Itens" },
+      { to: "/categories", text: "Categorias" },
+      { to: "/settings/movement-types", text: "Tipos de Movimento" },
+    ]
+  },
+  {
+    type: 'menu', icon: <FiUsers />, text: "Cadastros",
+    subLinks: [
+      { to: "/suppliers", text: "Fornecedores" },
+      { to: "/locations", text: "Locações" },
+    ]
+  },
+  {
+    type: 'menu', icon: <FiSettings />, text: "Configurações",
+    subLinks: [
+      { to: "/settings/branches", text: "Filiais" },
+      { to: "/settings/sectors", text: "Setores" },
+    ]
+  },
 ];
 
 function Sidebar() {
@@ -22,7 +43,7 @@ function Sidebar() {
     <aside className={classNames(styles.sidebar, { [styles.collapsed]: isCollapsed })}>
       
       <div className={styles.header}>
-        {!isCollapsed &&<span className={styles.logo}>📦</span>}
+        {!isCollapsed && <span className={styles.logo}>📦</span>}
         {!isCollapsed && <h1 className={styles.title}>Inventário</h1>}
       </div>
 
@@ -36,18 +57,27 @@ function Sidebar() {
 
       <nav className={styles.nav}>
         <ul className={styles.navList}>
-          {navLinks.map((link) => (
-            <li key={link.to}>
-              <NavLink
-                to={link.to}
-                end={link.to === "/dashboard"}
-                className={({ isActive }) => classNames(styles.navLink, { [styles.active]: isActive })}
-              >
-                <span className={styles.icon}>{link.icon}</span>
-                {!isCollapsed && <span className={styles.text}>{link.text}</span>}
-              </NavLink>
-            </li>
-          ))}
+          {/* ✅ 3. Lógica de renderização atualizada */}
+          {navLinks.map((item) => {
+            if (item.type === 'link') {
+              return (
+                <li key={item.to}>
+                  <NavLink
+                    to={item.to}
+                    end={item.to === "/dashboard"}
+                    className={({ isActive }) => classNames(styles.navLink, { [styles.active]: isActive })}
+                  >
+                    <span className={styles.icon}>{item.icon}</span>
+                    {!isCollapsed && <span className={styles.text}>{item.text}</span>}
+                  </NavLink>
+                </li>
+              );
+            }
+            if (item.type === 'menu') {
+              return <NavDropdown key={item.text} menu={item} isCollapsed={isCollapsed} />;
+            }
+            return null;
+          })}
         </ul>
       </nav>
     </aside>

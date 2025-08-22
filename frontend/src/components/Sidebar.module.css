@@ -124,3 +124,54 @@
   opacity: 0;
   width: 0; /* Ajuda na animação */
 }
+
+.menuButton {
+  width: 100%;
+  background: none;
+  border: none;
+  text-align: left;
+  position: relative;
+}
+
+.chevron {
+  position: absolute;
+  right: var(--space-md);
+  top: 50%;
+  transform: translateY(-50%);
+  transition: transform var(--transition);
+}
+
+.menuOpen .chevron {
+  transform: translateY(-50%) rotate(180deg);
+}
+
+.subList {
+  list-style: none;
+  padding-left: calc(var(--space-lg) + 24px); /* Alinha com o texto */
+  margin-top: var(--space-xs);
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease-in-out;
+}
+
+.menuOpen .subList {
+  max-height: 500px; /* Um valor alto para permitir a expansão */
+}
+
+.subLink {
+  display: block;
+  padding: var(--space-sm) 0;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  font-size: var(--text-sm);
+  border-radius: var(--border-radius);
+}
+
+.subLink:hover {
+  color: var(--color-text);
+}
+
+.subLink.active {
+  font-weight: 600;
+  color: var(--color-primary);
+}
