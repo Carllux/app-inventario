@@ -12,6 +12,7 @@ import SuppliersPage from './pages/SuppliersPage';
 import LocationsPage from './pages/LocationsPage';
 
 import { Toaster } from 'react-hot-toast'; 
+import CategoryManagementPage from './pages/CategoryManagementPage';
 
 function App() {
   return (
@@ -46,7 +47,7 @@ function App() {
           <Route path="/inventory/:id" element={<ItemDetailPage />} />
           <Route path="/suppliers" element={<SuppliersPage />} />
           <Route path="/locations" element={<LocationsPage />} />
-
+          <Route path="/categories" element={<CategoryManagementPage />} />
           
           {/* Futuramente, adicione outras páginas privadas aqui. Ex: */}
           {/* <Route path="/dashboard" element={<DashboardPage />} /> */}

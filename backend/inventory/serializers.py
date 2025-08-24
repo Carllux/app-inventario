@@ -3,9 +3,8 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from rest_framework.validators import UniqueTogetherValidator, UniqueValidator 
-from django_countries.serializer_fields import CountryField
 from .models import (
-    Branch, Sector, UserProfile,
+    Branch, CategoryGroup, Sector, UserProfile,
     Supplier, Category, Item, Location, 
     StockItem, StockMovement, MovementType
 )
@@ -47,11 +46,39 @@ class UserSerializer(serializers.ModelSerializer):
 
 # --- Serializadores de Catálogo e Estoque ---
 
+class CategoryGroupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CategoryGroup
+        fields = ['id', 'name', 'description']
+
+
 class CategorySerializer(serializers.ModelSerializer):
+    """Serializador de LEITURA: exibe o nome do grupo."""
+    # Mantém o relacionamento para leitura
+    group = serializers.StringRelatedField(read_only=True)
+    # ✅ ADICIONAR: campo para escrita também
+    group_id = serializers.PrimaryKeyRelatedField(
+        source='group',
+        queryset=CategoryGroup.objects.all(),
+        write_only=True,
+        allow_null=True,
+        required=False
+    )
+
     class Meta:
         model = Category
-        fields = ['id', 'name']
+        fields = ['id', 'name', 'group', 'group_id', 'description']
 
+class CategoryCreateUpdateSerializer(serializers.ModelSerializer):
+    group = serializers.PrimaryKeyRelatedField(
+        queryset=CategoryGroup.objects.all(), 
+        allow_null=True, 
+        required=False
+    )
+
+    class Meta:
+        model = Category
+        fields = ['id', 'name', 'group', 'description']
 class SupplierSerializer(serializers.ModelSerializer):
     """Serializador de LEITURA para Fornecedores."""
     # ✅ CORREÇÃO: Usa o CountrySerializer para retornar o objeto {code, name}

@@ -6,7 +6,7 @@ from solo.admin import SingletonModelAdmin
 
 # Importamos apenas os modelos do NOSSO app 'inventory'
 from .models import (
-    Branch, Sector, UserProfile,
+    Branch, CategoryGroup, Sector, UserProfile,
     Supplier, Category, Item, Location, 
     StockItem, StockMovement, MovementType, SystemSettings 
 )
@@ -94,10 +94,18 @@ class SupplierAdmin(BaseModelAdmin):
     list_filter = ('country', 'tax_regime')
     search_fields = ('name', 'cnpj', 'tax_id', 'ie')
 
+@admin.register(CategoryGroup)
+class CategoryGroupAdmin(BaseModelAdmin):
+    list_display = ('name', 'description')
+    search_fields = ('name',)
+
 @admin.register(Category)
 class CategoryAdmin(BaseModelAdmin):
-    list_display = ('name',)
+    # ✅ 3. Melhore o admin de Categoria para mostrar o grupo
+    list_display = ('name', 'group', 'description')
+    list_filter = ('group',)
     search_fields = ('name',)
+    autocomplete_fields = ['group'] # Facilita a seleção do grupo
 
 @admin.register(MovementType)
 class MovementTypeAdmin(BaseModelAdmin):

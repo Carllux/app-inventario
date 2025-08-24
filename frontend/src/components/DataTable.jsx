@@ -2,7 +2,6 @@
 
 import React from 'react';
 import { FiEdit2, FiTrash2 } from 'react-icons/fi';
-import styles from './DataTable.module.css';
 
 function DataTable({ 
   columns, 
@@ -12,23 +11,23 @@ function DataTable({
   highlightedId 
 }) {
   if (!data || data.length === 0) {
-    return <div className={styles.emptyState}>Nenhum registro encontrado.</div>;
+    return <div className="empty-state">Nenhum registro encontrado.</div>;
   }
 
   return (
-    <div className={styles.tableContainer}>
-      <table className={styles.dataTable}>
+    <div className="table-container">
+      <table className="data-table">
         <thead>
           <tr>
             {columns.map((col) => (
               <th key={col.accessor}>{col.header}</th>
             ))}
-            {(onEdit || onDelete) && <th className={styles.actionsHeader}>Ações</th>}
+            {(onEdit || onDelete) && <th className="actions-header">Ações</th>}
           </tr>
         </thead>
         <tbody>
           {data.map((row) => (
-            <tr key={row.id} className={row.id === highlightedId ? styles.highlighted : ''}>
+            <tr key={row.id} className={row.id === highlightedId ? 'highlighted-row' : ''}>
               {columns.map((col) => (
                 <td key={`${row.id}-${col.accessor}`}>
                   {/* ✅ LÓGICA DE RENDERIZAÇÃO APRIMORADA */}
@@ -41,7 +40,7 @@ function DataTable({
                 </td>
               ))}
               {(onEdit || onDelete) && (
-                <td className={styles.actionsCell}>
+                <td className="actions-cell">
                   {onEdit && (
                     <button 
                       className="button button-icon button-outline" 

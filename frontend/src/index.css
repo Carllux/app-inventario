@@ -582,3 +582,168 @@ input:disabled, textarea:disabled, select:disabled {
   padding-top: var(--space-lg);
   border-top: 1px solid var(--color-border);
 }
+
+/* Container principal da tabela */
+.table-container {
+  width: 100%;
+  overflow-x: auto;
+  margin: 1rem 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  background-color: var(--color-white);
+}
+
+/* Estilo base da tabela */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+  font-size: 0.9rem;
+}
+
+/* Cabeçalho da tabela */
+.data-table thead {
+  background-color: var(--color-light);
+}
+
+.data-table th {
+  padding: var(--space-md);
+  text-align: left;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+}
+
+/* Linhas da tabela */
+.data-table tr {
+  border-bottom: 1px solid var(--color-border);
+  transition: background-color 0.15s ease;
+}
+
+.data-table tr:last-child td {
+  border-bottom: none;
+}
+
+.data-table tr:hover {
+  background-color: var(--color-light-hover);
+}
+
+/* Células da tabela */
+.data-table td {
+  padding: var(--space-md);
+  vertical-align: middle;
+}
+
+/* Cabeçalho de ações */
+.data-table .actions-header {
+  text-align: right !important;
+}
+
+/* Célula de ações */
+.actions-cell {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
+
+/* Estado vazio */
+.empty-state {
+  text-align: center;
+  padding: var(--space-xl);
+  color: var(--color-text-muted);
+  background-color: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+}
+
+/* ===== ESTILOS DE DESTAQUE PARA TABELAS ===== */
+
+/* Linha destacada - versão robusta */
+.data-table tr.highlighted-row {
+  background-color: var(--color-primary-light) !important;
+  border-left: 4px solid var(--color-primary);
+  box-shadow: 0 2px 4px rgba(13, 110, 253, 0.15);
+  position: relative;
+}
+
+/* Efeito de "pulsação" sutil para chamar atenção */
+@keyframes highlight-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(13, 110, 253, 0.3);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(13, 110, 253, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(13, 110, 253, 0);
+  }
+}
+
+/* Animação de fade para o destaque */
+@keyframes highlight-fade {
+  0% {
+    background-color: #d1e7ff;
+    border-left-color: #0a58ca;
+  }
+  60% {
+    background-color: var(--color-primary-light);
+  }
+  100% {
+    background-color: var(--color-primary-light);
+    border-left-color: var(--color-primary);
+  }
+}
+
+/* Aplica ambas as animações */
+.data-table tr.highlighted-row {
+  animation: 
+    highlight-fade 1.5s ease-out,
+    highlight-pulse 2s ease-in-out 0.5s;
+}
+
+/* Estado para quando o destaque está prestes a ser removido */
+.data-table tr.highlighted-row.fade-out {
+  background-color: transparent !important;
+  border-left: 1px solid var(--color-border);
+  box-shadow: none;
+  transition: all 0.8s ease-in-out;
+}
+
+/* Botões de ação na tabela */
+.table-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.table-actions button {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-white);
+  border-radius: 0.25rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.table-actions button:hover {
+  background-color: var(--color-light-hover);
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .data-table {
+    font-size: 0.8rem;
+  }
+  
+  .data-table th,
+  .data-table td {
+    padding: 0.5rem;
+  }
+  
+  .table-actions {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+}

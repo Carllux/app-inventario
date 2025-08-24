@@ -2,7 +2,7 @@
 
 from django.http import Http404
 from django_countries import countries
-from rest_framework import generics, filters, status, serializers
+from rest_framework import generics, filters, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.throttling import UserRateThrottle
@@ -11,18 +11,19 @@ from rest_framework.response import Response
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 from django_filters.rest_framework import DjangoFilterBackend
-from django.contrib.auth.models import User
-from django.db import models, transaction
+
 # Bloco de import unificado para modelos
 from .models import (
-    Branch, Category, Sector, Location, Supplier, UserProfile,
+    Branch, Category, CategoryGroup, Sector, Location, Supplier, UserProfile,
     Item, MovementType, StockMovement, StockItem
 )
 # Bloco de import unificado para serializadores
 from .serializers import (
     CategorySerializer, StockItemSerializer, SupplierSerializer, UserSerializer, BranchSerializer, SectorSerializer, LocationSerializer,
     ItemSerializer, MovementTypeSerializer, StockMovementSerializer, ItemCreateUpdateSerializer, SupplierCreateUpdateSerializer, 
+    CategoryGroupSerializer, CategoryCreateUpdateSerializer
 )
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -99,6 +100,9 @@ def logout_view(request):
             status=status.HTTP_400_BAD_REQUEST
         )
 
+class BaseDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Classe base para views de detalhe com permissão."""
+    permission_classes = [IsAuthenticated]
 
 # --- VIEWS DE LISTAGEM PARA SUPORTE AO FRONTEND ---
 
@@ -322,10 +326,34 @@ class StockItemView(BranchFilteredQuerysetMixin, generics.RetrieveUpdateAPIView)
         )
 
 
-class CategoryList(generics.ListCreateAPIView): # ✅ Aplicar a mesma correção
-    queryset = Category.objects.filter(is_active=True)
-    serializer_class = CategorySerializer
-    permission_classes = [IsAuthenticated]
+class CategoryList(BaseListView):
+    queryset = Category.objects.filter(is_active=True).select_related('group')
+    
+    def get_serializer_class(self):
+        # Usa o serializador de escrita para POST, e o de leitura para GET
+        if self.request.method == 'POST':
+            return CategoryCreateUpdateSerializer
+        return CategorySerializer
+
+class CategoryDetailView(BaseDetailView):
+    queryset = Category.objects.all().select_related('group')
+
+    def get_serializer_class(self):
+        # Usa o serializador de escrita para PUT/PATCH, e o de leitura para GET
+        if self.request.method in ['PUT', 'PATCH']:
+            return CategoryCreateUpdateSerializer
+        return CategorySerializer
+
+class CategoryGroupList(BaseListView):
+    """View para listar e criar Grupos de Categoria."""
+    queryset = CategoryGroup.objects.filter(is_active=True)
+    serializer_class = CategoryGroupSerializer
+
+class CategoryGroupDetailView(BaseDetailView):
+    """View para detalhar, atualizar e deletar um Grupo de Categoria."""
+    queryset = CategoryGroup.objects.all()
+    serializer_class = CategoryGroupSerializer
+
 
 class SupplierList(BaseListView, generics.ListCreateAPIView): # ✅ Aplicar a mesma correção
     queryset = Supplier.objects.filter(is_active=True)
@@ -337,14 +365,6 @@ class SupplierList(BaseListView, generics.ListCreateAPIView): # ✅ Aplicar a me
         if self.request.method == 'POST':
             return SupplierCreateUpdateSerializer
         return SupplierSerializer
-
-class BaseDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """Classe base para views de detalhe com permissão."""
-    permission_classes = [IsAuthenticated]
-
-class CategoryDetailView(BaseDetailView):
-    queryset = Category.objects.all()
-    serializer_class = CategorySerializer
 
 class SupplierDetailView(BaseDetailView):
     queryset = Supplier.objects.all()
