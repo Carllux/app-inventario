@@ -208,7 +208,6 @@ select {
 label {
   color: var(--color-text);
   display: block; /* Faz com que o rótulo ocupe a linha inteira */
-  margin-bottom: 8px; /* Adiciona um espaço entre o rótulo e o campo abaixo dele */
 }
 
 /* Opcional: Altera também a cor do texto de placeholder (o texto que aparece antes de digitar) */

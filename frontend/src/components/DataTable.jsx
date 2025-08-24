@@ -234,7 +234,7 @@ function DataTable({
     <div className="table-container">
       {/* Seletor de colunas */}
       <div className="column-selector mb-3">
-        <strong>Colunas: </strong>
+        <strong>Colunas </strong>
         {columns.map((col) => (
           <label key={col.accessor} className="mr-2">
             <input

@@ -892,3 +892,249 @@ class AdditionalStockMovementTests(InventoryTestMixin, APITestCase):
         # Verifica se o preço unitário foi definido como preço de compra para entrada
         movement = StockMovement.objects.get(id=response.data['id'])
         self.assertEqual(movement.unit_price, self.item_sp.purchase_price)
+
+class SoftDeleteConsistencyTests(InventoryTestMixin, APITestCase):
+    """Testes para garantir consistência no soft delete entre Item e StockItem"""
+    
+    def test_delete_item_does_not_cascade_to_stockitems(self):
+        """Testa que o soft delete do Item NÃO deve marcar StockItems como deletados"""
+        # Contagem inicial
+        stockitems_count_before = StockItem.objects.filter(item=self.item_sp).count()
+        
+        # Deleta o item
+        self.item_sp.delete()
+        
+        # StockItems devem permanecer intactos (não deletados)
+        stockitems_count_after = StockItem.objects.filter(item=self.item_sp).count()
+        self.assertEqual(stockitems_count_before, stockitems_count_after)
+        
+        # Verifica que StockItems não foram marcados como deletados
+        stockitems_deleted = StockItem.all_objects.filter(
+            item=self.item_sp, 
+            deleted_at__isnull=False
+        ).count()
+        self.assertEqual(stockitems_deleted, 0)
+
+    def test_restore_item_does_not_affect_stockitems(self):
+        """Testa que restaurar Item não altera o estado dos StockItems"""
+        # Primeiro deleta
+        self.item_sp.delete()
+        
+        # Restaura
+        self.item_sp.restore()
+        
+        # StockItems devem permanecer inalterados
+        stockitems = StockItem.objects.filter(item=self.item_sp)
+        for stockitem in stockitems:
+            self.assertIsNone(stockitem.deleted_at)
+
+class StockMovementPriceValidationTests(InventoryTestMixin, APITestCase):
+    """Testes para validação de preço em movimentações"""
+    
+    def test_movement_fails_with_zero_purchase_price(self):
+        """Testa que movimentação de entrada falha com preço de compra zero"""
+        # Cria item com preço zero
+        item_no_price = self.create_test_item(
+            purchase_price=0,
+            sale_price=20.00
+        )
+        
+        self.client.force_authenticate(user=self.admin_user)
+        movement_data = {
+            'item': item_no_price.id,
+            'location': self.location_sp.id,
+            'movement_type': self.movement_type_entry.id,
+            'quantity': 10
+        }
+        
+        response = self.client.post('/api/movements/', movement_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('preço de compra', str(response.data).lower())
+
+    def test_movement_fails_with_zero_sale_price_for_outbound(self):
+        """Testa que movimentação de saída falha com preço de venda zero"""
+        item_no_sale_price = self.create_test_item(
+            purchase_price=10.00,
+            sale_price=0
+        )
+        
+        self.client.force_authenticate(user=self.admin_user)
+        movement_data = {
+            'item': item_no_sale_price.id,
+            'location': self.location_sp.id,
+            'movement_type': self.movement_type_exit.id,
+            'quantity': 5
+        }
+        
+        response = self.client.post('/api/movements/', movement_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('preço de venda', str(response.data).lower())
+
+class SerializerFieldCompletenessTests(InventoryTestMixin, APITestCase):
+    """Testes para garantir que todos os campos do model estão nos serializers"""
+    
+    def test_serializer_includes_basic_fields(self, endpoint, object_id):
+        """Teste genérico para campos básicos obrigatórios"""
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get(f'{endpoint}{object_id}/')
+        
+        basic_fields = ['id', 'created_at', 'updated_at', 'is_active']
+        
+        for field in basic_fields:
+            self.assertIn(
+                field, 
+                response.data, 
+                f"Campo básico {field} faltando no serializer"
+            )
+
+    def test_supplier_serializer_includes_all_fields(self):
+        """Testa que SupplierSerializer inclui todos os campos do model"""
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get(f'/api/suppliers/{self.supplier.id}/')
+        
+        expected_fields = [
+            'id', 'parent_supplier', 'tax_id', 'address_line_2', 'neighborhood',
+            'tax_regime_display'
+        ]
+        
+        for field in expected_fields:
+            self.assertIn(field, response.data, f"Campo {field} faltando no SupplierSerializer")
+
+    def test_item_serializer_includes_all_fields(self):
+        """Testa que ItemSerializer inclui todos os campos do model"""
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get(f'/api/items/{self.item_sp.id}/')
+        
+        expected_fields = [
+            'id', 'warranty_days', 'internal_code', 'manufacturer_code', 'cfop'
+        ]
+        
+        for field in expected_fields:
+            self.assertIn(field, response.data, f"Campo {field} faltando no ItemSerializer")
+
+    def test_movement_type_serializer_includes_all_fields(self):
+        """Testa que MovementTypeSerializer inclui todos os campos críticos"""
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get(f'/api/movement-types/{self.movement_type_entry.id}/')
+        
+        critical_fields = [
+            'code', 'category', 'category_display', 'document_type', 
+            'document_type_display', 'requires_approval', 'affects_finance'
+        ]
+        
+        for field in critical_fields:
+            self.assertIn(field, response.data, f"Campo {field} faltando no MovementTypeSerializer")
+
+class EANValidationTests(InventoryTestMixin, APITestCase):
+    """Testes para validação de código EAN"""
+    
+    def test_create_item_with_valid_ean(self):
+        """Testa criação de item com EAN válido"""
+        self.client.force_authenticate(user=self.admin_user)
+        
+        item_data = {
+            'sku': 'TEST-EAN-001',
+            'name': 'Item com EAN válido',
+            'branch': self.branch_sp.id,
+            'sale_price': 10.00,
+            'ean': '5901234123457'  # EAN-13 válido
+        }
+        
+        response = self.client.post('/api/items/', item_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_create_item_with_invalid_ean_fails(self):
+        """Testa que criação com EAN inválido é rejeitada"""
+        self.client.force_authenticate(user=self.admin_user)
+        
+        item_data = {
+            'sku': 'TEST-EAN-002',
+            'name': 'Item com EAN inválido',
+            'branch': self.branch_sp.id,
+            'sale_price': 10.00,
+            'ean': '1234567890123'  # EAN-13 inválido (dígito verificador errado)
+        }
+        
+        response = self.client.post('/api/items/', item_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('ean', response.data)
+
+class MovementTypeValidationTests(InventoryTestMixin, APITestCase):
+    """Testes para validações complexas do MovementType"""
+    
+    def test_create_movement_type_with_invalid_units_per_package(self):
+        """Testa que unidades por pacote < 1 são rejeitadas"""
+        self.client.force_authenticate(user=self.admin_user)
+        
+        movement_type_data = {
+            'name': 'Tipo Inválido',
+            'code': 'INV_UNIT',
+            'factor': 1,
+            'units_per_package': 0  # Inválido
+        }
+        
+        response = self.client.post('/api/movement-types/', movement_type_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('units_per_package', response.data)
+
+    def test_movement_type_cannot_be_its_own_parent(self):
+        """Testa que um tipo não pode ser pai de si mesmo"""
+        self.client.force_authenticate(user=self.admin_user)
+        
+        movement_type_data = {
+            'name': 'Tipo Circular',
+            'code': 'CIRCULAR',
+            'factor': 1,
+            'parent_type': self.movement_type_entry.id  # Definir depois de criar
+        }
+        
+        # Primeiro cria o tipo
+        response = self.client.post('/api/movement-types/', movement_type_data, format='json')
+        movement_type_id = response.data['id']
+        
+        # Tenta definir ele mesmo como parent
+        update_data = {'parent_type': movement_type_id}
+        response = self.client.patch(
+            f'/api/movement-types/{movement_type_id}/', 
+            update_data, 
+            format='json'
+        )
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+class SystemSettingsTests(InventoryTestMixin, APITestCase):
+    """Testes para configurações do sistema"""
+    
+    def test_system_settings_accessible_to_admin(self):
+        """Testa que admin pode acessar configurações do sistema"""
+        self.client.force_authenticate(user=self.admin_user)
+        
+        response = self.client.get('/api/system-settings/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # Verifica que campos estão presentes
+        self.assertIn('default_branch', response.data)
+        self.assertIn('default_sector', response.data)
+
+    def test_system_settings_not_accessible_to_normal_users(self):
+        """Testa que usuários normais não podem acessar configurações"""
+        self.client.force_authenticate(user=self.normal_user_sp)
+        
+        response = self.client.get('/api/system-settings/')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+class UserProfileManagerTests(InventoryTestMixin, APITestCase):
+    """Testes para campo manager no UserProfile"""
+    
+    def test_user_profile_includes_manager_field(self):
+        """Testa que UserProfile inclui campo manager"""
+        # Configura um manager
+        self.normal_user_sp.profile.manager = self.admin_user.profile
+        self.normal_user_sp.profile.save()
+        
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get(f'/api/users/{self.normal_user_sp.id}/')
+        
+        self.assertIn('profile', response.data)
+        self.assertIn('manager', response.data['profile'])
+        self.assertIn('manager_name', response.data['profile'])
