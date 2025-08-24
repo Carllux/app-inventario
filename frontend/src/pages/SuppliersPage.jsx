@@ -102,6 +102,7 @@ function SuppliersPage() {
           <div className="loadingState">Carregando...</div>
         ) : (
           <DataTable 
+            storageKey="SuppliersPage"
             columns={columns} 
             data={suppliers}
             onEdit={handleOpenEditModal}

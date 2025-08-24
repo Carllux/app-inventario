@@ -1,5 +1,4 @@
-// frontend/src/components/DataTable.jsx
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { FiEdit2, FiTrash2, FiArrowUp, FiArrowDown } from "react-icons/fi";
 import { FaGripVertical } from "react-icons/fa";
 import {
@@ -39,35 +38,31 @@ function SortableHeader({ column, sortConfig, onSort }) {
         isSorted ? (dir === "asc" ? "ascending" : "descending") : "none"
       }
     >
-      <div
-        className="th-content"
-        style={{ display: "flex", alignItems: "center", gap: 8 }}
-      >
-        {/* Botão de sort (livre do drag) */}
+      <div className="th-content">
+        {/* Botão de sort */}
         <button
           type="button"
-          className="th-button"
+          className="th-button button button-sm button-outline"
           onClick={() => onSort(column.accessor)}
           title="Ordenar"
-          style={{ all: "unset", cursor: "pointer" }}
+          aria-label={`Ordenar por ${column.header}`}
         >
           {column.header}{" "}
           {isSorted ? (
             dir === "asc" ? (
-              <FiArrowUp style={{ verticalAlign: "middle" }} />
+              <FiArrowUp className="icon-button" />
             ) : (
-              <FiArrowDown style={{ verticalAlign: "middle" }} />
+              <FiArrowDown className="icon-button" />
             )
           ) : null}
         </button>
 
-        {/* Handle de drag (fica com os listeners do dnd-kit) */}
+        {/* Handle de drag */}
         <span
           className="drag-handle"
           title="Reordenar coluna"
           {...attributes}
           {...listeners}
-          style={{ cursor: "grab", display: "inline-flex", lineHeight: 0 }}
         >
           <FaGripVertical />
         </span>
@@ -76,9 +71,7 @@ function SortableHeader({ column, sortConfig, onSort }) {
   );
 }
 
-/** ---------- Utilitários de ordenação ---------- */
-// Permite definir por coluna: sortType: 'number' | 'string' | 'date'
-// ou sortAccessor(row) e/ou sortFn(a, b).
+/** ---------- Utils de ordenação ---------- */
 function getSortValue(row, key, columns) {
   const col = columns.find((c) => c.accessor === key);
   if (!col) return row[key];
@@ -87,7 +80,6 @@ function getSortValue(row, key, columns) {
 }
 
 function defaultCompare(a, b, type) {
-  // nulos/undefined vão para o final
   if (a == null && b == null) return 0;
   if (a == null) return 1;
   if (b == null) return -1;
@@ -116,7 +108,6 @@ function defaultCompare(a, b, type) {
     return ta - tb;
   }
 
-  // string (default) – case-insensitive e com comparação “natural”
   return String(a).localeCompare(String(b), undefined, {
     sensitivity: "base",
     numeric: true,
@@ -133,20 +124,74 @@ function compareRows(aRow, bRow, key, columns) {
 }
 
 /** --------------------- DataTable --------------------- */
-function DataTable({ columns, data, onEdit, onDelete, highlightedId }) {
-  // sorting
+function DataTable({ 
+  columns, 
+  data, 
+  onEdit, 
+  onDelete, 
+  highlightedId, 
+  storageKey = "default" // Nova prop para identificar a tabela
+}) {
+  // Chaves únicas para cada tabela baseadas no storageKey
+  const STORAGE_KEY_ORDER = `datatable_${storageKey}_column_order`;
+  const STORAGE_KEY_VISIBLE = `datatable_${storageKey}_visible_columns`;
+
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
-  // ordem de colunas
+
+  const initialOrder = columns.map((c) => c.accessor);
+
+  // ordem inicial de colunas
   const [columnOrder, setColumnOrder] = useState(
-    columns.map((c) => c.accessor)
+    () => {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY_ORDER);
+        return stored ? JSON.parse(stored) : initialOrder;
+      } catch (error) {
+        console.warn("Erro ao carregar ordem de colunas do localStorage:", error);
+        return initialOrder;
+      }
+    }
   );
 
-  // sensores do dnd: só arrasta após mover 5px (evita “roubar” o clique)
+  // colunas visíveis
+  const [visibleColumns, setVisibleColumns] = useState(
+    () => {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY_VISIBLE);
+        return stored ? JSON.parse(stored) : initialOrder;
+      } catch (error) {
+        console.warn("Erro ao carregar colunas visíveis do localStorage:", error);
+        return initialOrder;
+      }
+    }
+  );
+
+  // persistência no localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_ORDER, JSON.stringify(columnOrder));
+      localStorage.setItem(STORAGE_KEY_VISIBLE, JSON.stringify(visibleColumns));
+    } catch (error) {
+      console.warn("Erro ao salvar no localStorage:", error);
+    }
+  }, [columnOrder, visibleColumns, STORAGE_KEY_ORDER, STORAGE_KEY_VISIBLE]);
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
 
-  // dados ordenados
+  // resetar colunas
+  const handleResetColumns = () => {
+    setColumnOrder(initialOrder);
+    setVisibleColumns(initialOrder);
+    try {
+      localStorage.setItem(STORAGE_KEY_ORDER, JSON.stringify(initialOrder));
+      localStorage.setItem(STORAGE_KEY_VISIBLE, JSON.stringify(initialOrder));
+    } catch (error) {
+      console.warn("Erro ao resetar colunas no localStorage:", error);
+    }
+  };
+
   const sortedData = useMemo(() => {
     if (!sortConfig.key) return data;
     const sorted = [...data].sort((a, b) =>
@@ -173,21 +218,49 @@ function DataTable({ columns, data, onEdit, onDelete, highlightedId }) {
     });
   };
 
-  if (!data || data.length === 0) {
-    return <div className="empty-state">Nenhum registro encontrado.</div>;
-  }
-
-  // aplica a ordem às colunas
   const orderedColumns = useMemo(
     () =>
       columnOrder
         .map((id) => columns.find((c) => c.accessor === id))
-        .filter(Boolean),
-    [columnOrder, columns]
+        .filter((c) => c && visibleColumns.includes(c.accessor)),
+    [columnOrder, visibleColumns, columns]
   );
+
+  if (!data || data.length === 0) {
+    return <div className="empty-state">Nenhum registro encontrado.</div>;
+  }
 
   return (
     <div className="table-container">
+      {/* Seletor de colunas */}
+      <div className="column-selector mb-3">
+        <strong>Colunas: </strong>
+        {columns.map((col) => (
+          <label key={col.accessor} className="mr-2">
+            <input
+              type="checkbox"
+              checked={visibleColumns.includes(col.accessor)}
+              onChange={(e) => {
+                setVisibleColumns((prev) =>
+                  e.target.checked
+                    ? [...prev, col.accessor]
+                    : prev.filter((id) => id !== col.accessor)
+                );
+              }}
+            />
+            {col.header}
+          </label>
+        ))}
+
+        {/* Botão reset */}
+        <button
+          onClick={handleResetColumns}
+          className="button button-outline ml-4"
+        >
+          Resetar colunas
+        </button>
+      </div>
+
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -196,7 +269,7 @@ function DataTable({ columns, data, onEdit, onDelete, highlightedId }) {
         <table className="data-table">
           <thead>
             <SortableContext
-              items={columnOrder}
+              items={orderedColumns.map(c => c.accessor)}
               strategy={horizontalListSortingStrategy}
             >
               <tr>
@@ -236,6 +309,7 @@ function DataTable({ columns, data, onEdit, onDelete, highlightedId }) {
                         className="button button-icon button-outline"
                         onClick={() => onEdit(row)}
                         title="Editar"
+                        aria-label="Editar registro"
                       >
                         <FiEdit2 />
                       </button>
@@ -245,6 +319,7 @@ function DataTable({ columns, data, onEdit, onDelete, highlightedId }) {
                         className="button button-icon button-danger-outline"
                         onClick={() => onDelete(row)}
                         title="Deletar"
+                        aria-label="Deletar registro"
                       >
                         <FiTrash2 />
                       </button>

@@ -96,6 +96,7 @@ function LocationsPage() {
           <div className="loadingState">Carregando...</div>
         ) : (
           <DataTable 
+            storageKey="LocationsPage"
             columns={columns} 
             data={locations}
             onEdit={handleOpenEditModal}

@@ -69,6 +69,7 @@ export default function CategoryGroupsTab() {
       <main style={{ marginTop: 'var(--space-lg)' }}>
         {loading ? <div className="loadingState">Carregando...</div> : (
           <DataTable
+            storageKey="CategoryGroupsTab"
             columns={columns}
             data={groups}
             onEdit={(group) => { setEditingGroupId(group.id); setIsFormModalOpen(true); }}

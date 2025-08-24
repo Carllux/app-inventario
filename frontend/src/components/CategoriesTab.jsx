@@ -85,6 +85,7 @@ export default function CategoriesTab() {
       <main style={{ marginTop: 'var(--space-lg)' }}>
         {loading ? <div className="loadingState">Carregando...</div> : (
           <DataTable
+            storageKey="CategoriesTab"
             columns={columns}
             data={categories}
             onEdit={(cat) => { 
