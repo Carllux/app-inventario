@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { 
   FiGrid, FiPackage, FiUsers, FiSettings,
-  FiChevronLeft, FiChevronRight, FiActivity 
+  FiChevronLeft, FiChevronRight
 } from 'react-icons/fi';
 import classNames from 'classnames';
 import styles from './Sidebar.module.css';
@@ -33,7 +33,6 @@ const navLinks = [
 
     ]
   },
-    { type: 'link', to: "/audit/movement-types", icon: <FiActivity />, text: "Auditoria" },
 ];
 
 function Sidebar() {

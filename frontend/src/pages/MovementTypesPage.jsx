@@ -1,5 +1,7 @@
 // frontend/src/pages/MovementTypesPage.jsx
 import React, { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom'; // ✅ 1. Importar o Link
+import { FiFileText, FiActivity  } from 'react-icons/fi'; // ✅ 2. Importar um ícone para a auditoria
 import { getMovementTypes, deleteMovementType } from '../services/movementTypeService';
 import PageHeader from '../components/PageHeader';
 import DataTable from '../components/DataTable';
@@ -103,6 +105,15 @@ function MovementTypesPage() {
             onEdit={(item) => { setEditingItemId(item.id); setIsFormModalOpen(true); }}
             onDelete={(item) => setDeleteTarget(item)}
             highlightedId={highlightedId}
+            renderCustomActions={(row) => (
+              <Link
+                to={`/audit/movement-types/${row.id}`}
+                className="button button-icon button-outline"
+                title="Auditar Movimentações"
+              >
+                <FiFileText />
+              </Link>
+            )}
           />
         )}
       </main>
