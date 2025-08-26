@@ -204,13 +204,13 @@ class LocationList(generics.ListCreateAPIView):
             queryset = queryset.filter(branch_id=branch_id)
         return queryset.select_related('branch')
 
-class MovementTypeList(BaseListView):
+class MovementTypeOptionsList(BaseListView): # O nome agora é mais claro
     serializer_class = MovementTypeSerializer
     
     def get_queryset(self):
+        # A lógica de filtragem para o formulário permanece aqui
         queryset = MovementType.objects.filter(is_active=True)
         item_id = self.request.query_params.get('item_id')
-        
         if item_id:
             try:
                 item = Item.objects.get(pk=item_id)
@@ -220,22 +220,21 @@ class MovementTypeList(BaseListView):
                 pass
         return queryset
 
-class MovementTypeListCreateView(generics.ListCreateAPIView):
+class MovementTypeList(BaseListView):
     """
-    View para listar e CRIAR Tipos de Movimento.
+    View principal para listar e CRIAR Tipos de Movimento na página de gerenciamento.
     """
-    queryset = MovementType.objects.all()
+    # O queryset base, a ordenação virá da BaseListView
+    queryset = MovementType.objects.all() 
     serializer_class = MovementTypeSerializer
-    permission_classes = [IsAuthenticated]
-    pagination_class = StandardResultsSetPagination
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name', 'code']
-    ordering_fields = ['name', 'code', 'created_at']
+    # Adicionamos a capacidade de filtrar por categoria (Entrada, Saída, etc.)
+    filterset_fields = ['category']
 
-# Adicione esta view para detalhe, atualização e exclusão
 class MovementTypeDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
     View para detalhar, atualizar e deletar um Tipo de Movimento.
+
     """
     queryset = MovementType.objects.all()
     serializer_class = MovementTypeSerializer
