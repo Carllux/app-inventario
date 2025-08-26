@@ -22,3 +22,5 @@ local_settings.py
 *.jpg
 
 backend/media
+
+backlog.txt

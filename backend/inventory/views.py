@@ -258,6 +258,8 @@ class ItemListCreateView(BranchFilteredQuerysetMixin, generics.ListCreateAPIView
         'supplier': ['exact'],
         'branch': ['exact'],
         'stock_items__location': ['exact'],
+        'status': ['exact'], # <-- ADICIONAR ESTA LINHA
+
     }
 
     def get_serializer_class(self):

@@ -26,10 +26,6 @@ function SupplierFormModal({ isOpen, onClose, onSuccess, supplierId }) {
     handleSubmit,
   } = useSupplierForm(isOpen, supplierId);
 
-  // Debug para verificar os dados
-  console.log('Dados do formulário:', formData);
-  console.log('País no formulário:', formData.country);
-
   if (!isOpen) return null;
 
   return (

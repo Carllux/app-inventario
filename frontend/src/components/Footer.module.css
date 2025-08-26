@@ -1,0 +1,28 @@
+/* src/components/Footer/Footer.module.css */
+
+.appFooter {
+  padding: var(--space-lg) 0;
+  background-color: var(--color-white);
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  flex-shrink: 0; /* Impede que o rodapé encolha se o conteúdo principal for grande */
+  margin-top: auto; /* Empurra o rodapé para o final da página em layouts flex */
+}
+
+.footerContent {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap; /* Permite que o conteúdo quebre em telas menores */
+  gap: var(--space-md);
+  font-size: var(--text-sm);
+}
+
+/* Ajuste para telas menores */
+@media (max-width: var(--breakpoint-md)) {
+  .footerContent {
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+  }
+}

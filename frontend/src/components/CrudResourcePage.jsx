@@ -114,7 +114,7 @@ function CrudResourcePage({
       </main>
       
       {/* O modal de formulário só é renderizado se a criação ou edição estiverem habilitadas */}
-      {(canCreate || canEdit) && <FormComponent {...formProps} />}
+      {(canCreate || canEdit) && <FormModal  {...formProps} />}
 
 
       <ConfirmationModal
