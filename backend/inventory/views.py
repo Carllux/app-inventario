@@ -2,11 +2,14 @@
 
 from django.http import Http404
 from django_countries import countries
+from django.contrib.auth.models import User 
 from rest_framework import generics, filters, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.throttling import UserRateThrottle
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
+from django.core.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.response import Response
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
@@ -15,13 +18,14 @@ from django_filters.rest_framework import DjangoFilterBackend
 # Bloco de import unificado para modelos
 from .models import (
     Branch, Category, CategoryGroup, Sector, Location, Supplier, UserProfile,
-    Item, MovementType, StockMovement, StockItem
+    Item, MovementType, StockMovement, StockItem, SystemSettings
 )
+
 # Bloco de import unificado para serializadores
 from .serializers import (
     CategorySerializer, StockItemSerializer, SupplierSerializer, UserSerializer, BranchSerializer, SectorSerializer, LocationSerializer,
     ItemSerializer, MovementTypeSerializer, StockMovementSerializer, ItemCreateUpdateSerializer, SupplierCreateUpdateSerializer, 
-    CategoryGroupSerializer, CategoryCreateUpdateSerializer
+    CategoryGroupSerializer, CategoryCreateUpdateSerializer, SystemSettingsSerializer
 )
 
 import logging
@@ -96,7 +100,7 @@ def logout_view(request):
         )
     except Exception as e:
         return Response(
-            {'detail': 'Erro ao realizar logout.'},
+            {'detail': f'Erro ao realizar logout. {e}'},
             status=status.HTTP_400_BAD_REQUEST
         )
 
@@ -198,6 +202,27 @@ class MovementTypeList(BaseListView):
                 pass
         return queryset
 
+class MovementTypeListCreateView(generics.ListCreateAPIView):
+    """
+    View para listar e CRIAR Tipos de Movimento.
+    """
+    queryset = MovementType.objects.all()
+    serializer_class = MovementTypeSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['name', 'code']
+    ordering_fields = ['name', 'code', 'created_at']
+
+# Adicione esta view para detalhe, atualização e exclusão
+class MovementTypeDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    View para detalhar, atualizar e deletar um Tipo de Movimento.
+    """
+    queryset = MovementType.objects.all()
+    serializer_class = MovementTypeSerializer
+    permission_classes = [IsAuthenticated]
+
 # --- VIEWS PRINCIPAIS DA APLICAÇÃO ---
 
 class ItemListCreateView(BranchFilteredQuerysetMixin, generics.ListCreateAPIView):
@@ -295,7 +320,17 @@ class ItemDetailView(generics.RetrieveUpdateDestroyAPIView):
         return queryset.select_related('branch', 'category', 'supplier').distinct()
 
     def perform_destroy(self, instance):
-        instance.delete()
+        """
+        Executa a exclusão e captura a ValidationError do modelo para
+        convertê-la em uma resposta de API adequada.
+        """
+        try:
+            instance.delete()
+        except ValidationError as e:
+            # Converte o erro do Django na exceção correta do DRF,
+            # que será automaticamente transformada em uma resposta HTTP 400.
+            raise DRFValidationError(e.messages)
+
 
 class StockMovementCreate(generics.CreateAPIView):
     """Endpoint para registrar uma nova movimentação de estoque."""
@@ -355,9 +390,10 @@ class CategoryGroupDetailView(BaseDetailView):
     serializer_class = CategoryGroupSerializer
 
 
-class SupplierList(BaseListView, generics.ListCreateAPIView): # ✅ Aplicar a mesma correção
+class SupplierList(BaseListView, generics.ListCreateAPIView):
     queryset = Supplier.objects.filter(is_active=True)
-    serializer_class = SupplierSerializer
+    # The class-level serializer is used for GET (list) requests
+    serializer_class = SupplierSerializer 
     search_fields = ['name', 'cnpj']
     permission_classes = [IsAuthenticated]
 
@@ -365,6 +401,23 @@ class SupplierList(BaseListView, generics.ListCreateAPIView): # ✅ Aplicar a me
         if self.request.method == 'POST':
             return SupplierCreateUpdateSerializer
         return SupplierSerializer
+
+    # 👇 ADICIONE ESTE MÉTODO PARA CORRIGIR A RESPOSTA DE CRIAÇÃO 👇
+    def create(self, request, *args, **kwargs):
+        """
+        Overrides the default create behavior to return the detailed
+        read serializer's data instead of the write serializer's.
+        """
+        # Use the write serializer to validate and create the object
+        write_serializer = self.get_serializer(data=request.data)
+        write_serializer.is_valid(raise_exception=True)
+        self.perform_create(write_serializer)
+
+        # Use the read serializer to generate the response
+        read_serializer = SupplierSerializer(write_serializer.instance, context={'request': request})
+        
+        headers = self.get_success_headers(read_serializer.data)
+        return Response(read_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 class SupplierDetailView(BaseDetailView):
     queryset = Supplier.objects.all()
@@ -414,3 +467,24 @@ def country_list_view(request):
         for code, name in list(countries)
     ]
     return Response(country_data)
+
+class SystemSettingsView(generics.RetrieveUpdateAPIView):
+    """
+    View para ver e editar as configurações do sistema (Singleton).
+    Acessível apenas por administradores.
+    """
+    permission_classes = [IsAdminUser]
+    serializer_class = SystemSettingsSerializer
+
+    def get_object(self):
+        # O django-solo nos dá o método get_solo() para pegar a única instância
+        return SystemSettings.get_solo()
+    
+class UserDetailView(generics.RetrieveAPIView):
+    """
+    View para detalhar um usuário específico.
+    Acessível apenas por administradores.
+    """
+    queryset = User.objects.all().select_related('profile')
+    serializer_class = UserSerializer
+    permission_classes = [IsAdminUser] # Apenas admins podem ver outros usuários
