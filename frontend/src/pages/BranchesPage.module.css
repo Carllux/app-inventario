@@ -1,0 +1,8 @@
+/* frontend/src/pages/BranchesPage.module.css */
+ /* .pageContainer {
+ Estilos de container, se necessário 
+}*/
+
+.contentArea {
+  margin-top: var(--space-lg);
+}
