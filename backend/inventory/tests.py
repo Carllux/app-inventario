@@ -2,8 +2,8 @@
 import uuid
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.db.models.signals import post_save
-from django.test import TestCase, TransactionTestCase
+from django.test import TestCase
+from django.core.exceptions import ValidationError  
 
 # Django REST Framework
 from rest_framework import status
@@ -11,14 +11,14 @@ from rest_framework.test import APITestCase
 
 # Third-party libraries
 from PIL import Image as PilImage
-from unittest.mock import patch
 
 # Local imports
-from inventory.signals import create_or_update_user_profile
+from inventory.serializers import SupplierCreateUpdateSerializer, SupplierSerializer
+from inventory.validators import validate_cnpj_format
+
 
 # Python standard library
 from io import BytesIO
-import tempfile
 import os
 
 from .models import (
@@ -32,7 +32,7 @@ from .models import (
     StockMovement,
     Supplier,
     SystemSettings,
-    UserProfile
+    CategoryGroup
 )
 
 
@@ -108,7 +108,9 @@ class InventoryTestMixin:
         cls.supplier = Supplier.objects.create(
             name='[TEST] Fornecedor de Teste', 
             country='BR',
-            email='test_fornecedor@test.com'
+            email='test_fornecedor@test.com',
+            ie='123456789',
+            tax_regime='SIMPLE'
         )
         
         # --- CORREÇÃO: Códigos de MovementType dentro do limite de 10 caracteres ---
@@ -262,61 +264,6 @@ class ItemModelTests(InventoryTestMixin, TestCase): # ✅ Classe base alterada
         self.assertEqual(saved_image.format, 'WEBP')
         self.assertLessEqual(saved_image.width, 1024)
 
-        
-class ItemListAPITests(InventoryTestMixin, APITestCase):
-    """
-    Suite de testes completa para o endpoint de listagem de Itens (GET /api/items/).
-    Testa cenários de permissão, filtragem e estrutura da resposta.
-    """
-
-    # Nenhum método setUp é necessário. Todos os dados vêm do InventoryTestMixin.
-
-    def test_unauthenticated_user_cannot_access_items(self):
-        """Verifica se um usuário não autenticado recebe erro 401 (Unauthorized)."""
-        response = self.client.get('/api/items/')
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-
-    def test_normal_user_sees_only_their_branch_items(self):
-        """Verifica se a listagem para um usuário normal retorna apenas os itens de sua filial."""
-        self.client.force_authenticate(user=self.normal_user_sp)
-        response = self.client.get('/api/items/')
-        
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data['results']), 1)
-        self.assertEqual(response.data['results'][0]['sku'], self.item_sp.sku)
-
-    def test_admin_user_sees_all_items(self):
-        """Verifica se um usuário administrador (staff) vê TODOS os itens de TODAS as filiais."""
-        self.client.force_authenticate(user=self.admin_user)
-        response = self.client.get('/api/items/')
-        
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data['results']), 2)
-
-        # ✅ MELHORIA: Verificação mais robusta.
-        # Garante que os SKUs de AMBOS os itens estão na resposta.
-        skus_in_response = {item['sku'] for item in response.data['results']}
-        self.assertIn(self.item_sp.sku, skus_in_response)
-        self.assertIn(self.item_rj.sku, skus_in_response)
-    
-    def test_user_can_filter_by_accessible_location(self):
-        """Verifica se um usuário pode filtrar por uma localização à qual ele tem acesso."""
-        self.client.force_authenticate(user=self.normal_user_sp)
-        url = f'/api/items/?stock_items__location={self.location_sp.id}'
-        response = self.client.get(url)
-        
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data['results']), 1)
-    
-    def test_user_cannot_filter_by_inaccessible_location(self):
-        """Verifica se o filtro por uma localização PROIBIDA retorna uma lista vazia."""
-        self.client.force_authenticate(user=self.normal_user_sp)
-        url = f'/api/items/?stock_items__location={self.location_rj.id}'
-        response = self.client.get(url)
-        
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data['results']), 0)
-
 class StockMovementAPITests(InventoryTestMixin, APITestCase):
     """
     Suite de testes para o endpoint de criação de Movimentações (POST /api/movements/).
@@ -411,24 +358,6 @@ class ItemListAPITests(InventoryTestMixin, APITestCase):
         response = self.client.get('/api/items/')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    def test_normal_user_sees_only_their_branch_items(self):
-        """Verifica se a listagem para um usuário normal retorna apenas os itens de sua filial."""
-        self.client.force_authenticate(user=self.normal_user_sp)
-        response = self.client.get('/api/items/')
-        
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data['results']), 1)
-        self.assertEqual(response.data['results'][0]['sku'], self.item_sp.sku)
-
-    def test_admin_user_sees_all_items(self):
-        """Verifica se um usuário administrador (staff) vê TODOS os itens de TODAS as filiais."""
-        self.client.force_authenticate(user=self.admin_user)
-        response = self.client.get('/api/items/')
-        
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        # O mixin cria 2 itens, um em cada filial. O admin deve ver ambos.
-        self.assertEqual(len(response.data['results']), 2)
-
     def test_user_can_filter_by_accessible_location(self):
         """Verifica se um usuário pode filtrar por uma localização à qual ele tem acesso."""
         self.client.force_authenticate(user=self.normal_user_sp)
@@ -467,6 +396,28 @@ class ItemListAPITests(InventoryTestMixin, APITestCase):
         self.assertIn('name', item_data['category'])
         self.assertIn('name', item_data['supplier'])
 
+    def test_normal_user_sees_only_their_branch_items(self):
+        """Verifica se a listagem para um usuário normal retorna apenas os itens de sua filial."""
+        self.client.force_authenticate(user=self.normal_user_sp)
+        response = self.client.get('/api/items/')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 1)
+        self.assertEqual(response.data['results'][0]['sku'], self.item_sp.sku)
+
+    def test_admin_user_sees_all_items(self):
+        """Verifica se um usuário administrador (staff) vê TODOS os itens de TODAS as filiais."""
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get('/api/items/')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 2)
+
+        # ✅ MELHORIA: Verificação mais robusta.
+        # Garante que os SKUs de AMBOS os itens estão na resposta.
+        skus_in_response = {item['sku'] for item in response.data['results']}
+        self.assertIn(self.item_sp.sku, skus_in_response)
+        self.assertIn(self.item_rj.sku, skus_in_response)
 
 # --- SUÍTE 2: TESTES PARA A CRIAÇÃO DE ITENS (POST) ---
 # Em backend/inventory/tests.py
@@ -482,7 +433,6 @@ class ItemCreateAPITests(InventoryTestMixin, APITestCase):  # ✅ Mudança aqui
         
         self.client.force_authenticate(user=self.normal_user_sp)
         items_before = Item.objects.count()
-        stockitems_before = StockItem.objects.count()
         
         item_data = {
             "sku": "SKU-TEST-123", 
@@ -497,7 +447,6 @@ class ItemCreateAPITests(InventoryTestMixin, APITestCase):  # ✅ Mudança aqui
         
         # DEBUG para verificar
         items_after = Item.objects.count()
-        stockitems_after = StockItem.objects.count()
 
         # Verifica se há stockitems órfãos
         from django.db import connection
@@ -506,7 +455,6 @@ class ItemCreateAPITests(InventoryTestMixin, APITestCase):  # ✅ Mudança aqui
                 SELECT COUNT(*) FROM inventory_stockitem 
                 WHERE item_id NOT IN (SELECT id FROM inventory_item)
             """)
-            orphaned_count = cursor.fetchone()[0]
         
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(items_after, items_before + 1)
@@ -609,9 +557,27 @@ class ItemDetailAPITests(InventoryTestMixin, APITestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_delete_item_success(self):
-        """Verifica se um usuário pode 'deletar' (soft delete) um item."""
-        # ✅ Usa self.normal_user_sp do mixin
+        """
+        Verifica se um usuário pode 'deletar' (soft delete) um item COM ESTOQUE ZERADO.
+        """
         self.client.force_authenticate(user=self.normal_user_sp)
+
+        # --- CORREÇÃO: Zera o estoque do item antes de tentar deletar ---
+        stock_item = StockItem.objects.get(item=self.item_sp)
+        # Cria um movimento de saída para esvaziar o estoque
+        StockMovement.objects.create(
+            item=self.item_sp,
+            location=stock_item.location,
+            movement_type=self.movement_type_exit, # Tipo de saída do mixin
+            quantity=stock_item.quantity,          # Remove a quantidade total
+            user=self.normal_user_sp
+        )
+        self.item_sp.refresh_from_db()
+        # Confirma que o estoque é zero antes de prosseguir
+        self.assertEqual(self.item_sp.total_quantity, 0)
+        # --- FIM DA CORREÇÃO ---
+
+        # Agora, a tentativa de delete deve ser bem-sucedida
         response = self.client.delete(f'/api/items/{self.item_sp.pk}/')
     
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
@@ -620,53 +586,66 @@ class ItemDetailAPITests(InventoryTestMixin, APITestCase):
         item_deleted = Item.all_objects.get(pk=self.item_sp.pk) 
         self.assertIsNotNone(item_deleted.deleted_at)
 
+    def test_cannot_delete_item_with_positive_stock(self):
+        """
+        Verifica se a API rejeita a tentativa de deletar um item com saldo de estoque positivo.
+        """
+        # Garante que o item de teste realmente tem estoque (configurado no setup)
+        self.assertGreater(self.item_sp.total_quantity, 0, "O item de teste deveria ter estoque para este cenário.")
+        
+        # Autentica o usuário que tem permissão sobre o item
+        self.client.force_authenticate(user=self.normal_user_sp)
+        
+        # Tenta deletar o item através da API
+        response = self.client.delete(f'/api/items/{self.item_sp.pk}/')
+        
+        # 1. Verifica se a API retornou o status HTTP 400 (Bad Request)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        
+        # 2. Verifica se a mensagem de erro contém a justificativa correta
+        self.assertIn('estoque', str(response.data).lower())
+        
+        # 3. Garante que o item NÃO foi marcado como deletado no banco de dados
+        self.item_sp.refresh_from_db()
+        self.assertIsNone(self.item_sp.deleted_at)
+
 class SoftDeleteTests(InventoryTestMixin, APITestCase):
     """Testes para a funcionalidade de soft delete."""
 
-    def test_delete_marks_item_and_stockitems_as_deleted(self):
-        """Testa se deletar um item marca ambos o item e seus estoques como deletados."""
-        self.client.force_authenticate(user=self.admin_user)
-        
-        # Verifica estado inicial
-        self.assertIsNone(self.item_sp.deleted_at)
-        stock_items = self.item_sp.stock_items.all()
-        for stock in stock_items:
-            self.assertIsNone(stock.deleted_at)
-        
-        # Deleta o item
-        response = self.client.delete(f'/api/items/{self.item_sp.id}/')
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        
-        # Recarrega os objetos do banco
+    def test_restoring_item_does_not_affect_stockitems(self):
+        """
+        Testa que restaurar um Item não afeta os StockItems,
+        pois eles não foram deletados em primeiro lugar (lógica sem cascata).
+        """
+        # 1. Zera o estoque do item para permitir a exclusão
+        stock_item = StockItem.objects.get(item=self.item_sp)
+        StockMovement.objects.create(
+            item=self.item_sp,
+            location=stock_item.location,
+            movement_type=self.movement_type_exit,
+            quantity=stock_item.quantity,
+            user=self.admin_user
+        )
         self.item_sp.refresh_from_db()
-        stock_items = self.item_sp.stock_items.all()
-        
-        # Verifica se foram marcados como deletados
-        self.assertIsNotNone(self.item_sp.deleted_at)
-        for stock in stock_items:
-            self.assertIsNotNone(stock.deleted_at)
-    
-    def test_restore_item_restores_stockitems(self):
-        """Testa se restaurar um item também restaura seus estoques."""
-        # Primeiro deleta o item
+
+        # 2. Deleta o item
         self.item_sp.delete()
         self.item_sp.refresh_from_db()
-        
-        # Verifica que estão deletados
-        self.assertIsNotNone(self.item_sp.deleted_at)
-        stock_items = self.item_sp.stock_items.all()
-        for stock in stock_items:
-            self.assertIsNotNone(stock.deleted_at)
-        
-        # Restaura o item
+        self.assertIsNotNone(self.item_sp.deleted_at, "O item deveria estar marcado como deletado.")
+
+        # 3. VERIFICAÇÃO CHAVE: Garante que o StockItem NÃO foi afetado pela exclusão
+        stock_item.refresh_from_db()
+        self.assertIsNone(stock_item.deleted_at, "StockItem não deveria ser afetado pela exclusão do Item.")
+
+        # 4. Restaura o item
         self.item_sp.restore()
         self.item_sp.refresh_from_db()
-        
-        # Verifica que foram restaurados
-        self.assertIsNone(self.item_sp.deleted_at)
-        stock_items = self.item_sp.stock_items.all()
-        for stock in stock_items:
-            self.assertIsNone(stock.deleted_at)
+        self.assertIsNone(self.item_sp.deleted_at, "O item deveria ter sido restaurado.")
+
+        # 5. Verificação final: Garante que o StockItem continua inalterado
+        stock_item.refresh_from_db()
+        self.assertIsNone(stock_item.deleted_at, "StockItem deveria permanecer inalterado após a restauração.")
+
 
 # --- TESTES DE MOVIMENTAÇÃO DE ESTOQUE ---
 class StockMovementTests(InventoryTestMixin, APITestCase):
@@ -745,15 +724,27 @@ class PermissionTests(InventoryTestMixin, APITestCase):
     
     def test_admin_sees_soft_deleted_items(self):
         """Testa se administradores veem itens deletados."""
-        # Primeiro deleta um item
+        # --- CORREÇÃO: Zera o estoque do item antes de deletar ---
+        stock_item = StockItem.objects.get(item=self.item_sp)
+        StockMovement.objects.create(
+            item=self.item_sp,
+            location=stock_item.location,
+            movement_type=self.movement_type_exit,
+            quantity=stock_item.quantity,
+            user=self.admin_user
+        )
+        self.item_sp.refresh_from_db()
+        self.assertEqual(self.item_sp.total_quantity, 0)
+        # --- FIM DA CORREÇÃO ---
+
+        # Agora o delete será bem-sucedido
         self.item_sp.delete()
         
         self.client.force_authenticate(user=self.admin_user)
         response = self.client.get('/api/items/')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        # Admin deve ver todos os itens, incluindo deletados
-        # ⚠️ CORREÇÃO: Verificar a contagem considerando soft delete
+        # Admin deve ver os dois itens: o deletado (SP) e o não deletado (RJ)
         self.assertEqual(len(response.data['results']), 2)
     
 def test_normal_user_cannot_see_soft_deleted_items(self):
@@ -898,17 +889,23 @@ class SoftDeleteConsistencyTests(InventoryTestMixin, APITestCase):
     
     def test_delete_item_does_not_cascade_to_stockitems(self):
         """Testa que o soft delete do Item NÃO deve marcar StockItems como deletados"""
-        # Contagem inicial
-        stockitems_count_before = StockItem.objects.filter(item=self.item_sp).count()
-        
-        # Deleta o item
+        # --- CORREÇÃO: Zera o estoque do item para permitir a exclusão ---
+        stock_item = StockItem.objects.get(item=self.item_sp)
+        StockMovement.objects.create(
+            item=self.item_sp,
+            location=stock_item.location,
+            movement_type=self.movement_type_exit,
+            quantity=stock_item.quantity,
+            user=self.admin_user  # Use any valid user
+        )
+        self.item_sp.refresh_from_db()
+        self.assertEqual(self.item_sp.total_quantity, 0)
+        # --- FIM DA CORREÇÃO ---
+
+        # Agora a deleção será bem-sucedida
         self.item_sp.delete()
         
-        # StockItems devem permanecer intactos (não deletados)
-        stockitems_count_after = StockItem.objects.filter(item=self.item_sp).count()
-        self.assertEqual(stockitems_count_before, stockitems_count_after)
-        
-        # Verifica que StockItems não foram marcados como deletados
+        # O restante do teste agora pode ser executado para verificar a consistência
         stockitems_deleted = StockItem.all_objects.filter(
             item=self.item_sp, 
             deleted_at__isnull=False
@@ -917,13 +914,24 @@ class SoftDeleteConsistencyTests(InventoryTestMixin, APITestCase):
 
     def test_restore_item_does_not_affect_stockitems(self):
         """Testa que restaurar Item não altera o estado dos StockItems"""
-        # Primeiro deleta
+        # --- CORREÇÃO: Zera o estoque do item para permitir a exclusão ---
+        stock_item = StockItem.objects.get(item=self.item_sp)
+        StockMovement.objects.create(
+            item=self.item_sp,
+            location=stock_item.location,
+            movement_type=self.movement_type_exit,
+            quantity=stock_item.quantity,
+            user=self.admin_user
+        )
+        self.item_sp.refresh_from_db()
+        self.assertEqual(self.item_sp.total_quantity, 0)
+        # --- FIM DA CORREÇÃO ---
+
+        # Agora a deleção e restauração podem ser testadas corretamente
         self.item_sp.delete()
-        
-        # Restaura
         self.item_sp.restore()
         
-        # StockItems devem permanecer inalterados
+        # A asserção original do teste
         stockitems = StockItem.objects.filter(item=self.item_sp)
         for stockitem in stockitems:
             self.assertIsNone(stockitem.deleted_at)
@@ -971,59 +979,109 @@ class StockMovementPriceValidationTests(InventoryTestMixin, APITestCase):
         self.assertIn('preço de venda', str(response.data).lower())
 
 class SerializerFieldCompletenessTests(InventoryTestMixin, APITestCase):
-    """Testes para garantir que todos os campos do model estão nos serializers"""
-    
-    def test_serializer_includes_basic_fields(self, endpoint, object_id):
-        """Teste genérico para campos básicos obrigatórios"""
-        self.client.force_authenticate(user=self.admin_user)
-        response = self.client.get(f'{endpoint}{object_id}/')
-        
-        basic_fields = ['id', 'created_at', 'updated_at', 'is_active']
-        
-        for field in basic_fields:
-            self.assertIn(
-                field, 
-                response.data, 
-                f"Campo básico {field} faltando no serializer"
-            )
+    """
+    Testa dinamicamente se os serializadores de LEITURA estão expondo todos os
+    campos relevantes de seus modelos correspondentes.
+    """
 
-    def test_supplier_serializer_includes_all_fields(self):
-        """Testa que SupplierSerializer inclui todos os campos do model"""
+    def _get_model_field_names(self, model, exclude=None):
+        """
+        Helper que extrai todos os nomes de campos de um modelo,
+        ignorando relações reversas e campos na lista de exclusão.
+        """
+        exclude = exclude or []
+        fields = model._meta.get_fields()
+        field_names = set()
+        for field in fields:
+            # Ignora relações reversas (ex: item.stock_items) e campos da lista de exclusão
+            if (field.auto_created and not field.concrete) or field.name in exclude:
+                continue
+            field_names.add(field.name)
+        return field_names
+
+    def test_supplier_serializer_is_complete(self):
+        """Testa que o SupplierSerializer expõe todos os campos do modelo Supplier + extras."""
+        # Campos do modelo que não devem estar no serializer de leitura
+        exclude_from_model = {'cnpj_validation_overridden'}
+        model_fields = self._get_model_field_names(Supplier, exclude=exclude_from_model)
+
+        # Campos que existem APENAS no serializer (ex: properties, method fields)
+        serializer_extras = {'tax_regime_display'}
+
+        expected_fields = model_fields.union(serializer_extras)
+        
         self.client.force_authenticate(user=self.admin_user)
         response = self.client.get(f'/api/suppliers/{self.supplier.id}/')
-        
-        expected_fields = [
-            'id', 'parent_supplier', 'tax_id', 'address_line_2', 'neighborhood',
-            'tax_regime_display'
-        ]
-        
-        for field in expected_fields:
-            self.assertIn(field, response.data, f"Campo {field} faltando no SupplierSerializer")
+        actual_fields = set(response.data.keys())
 
-    def test_item_serializer_includes_all_fields(self):
-        """Testa que ItemSerializer inclui todos os campos do model"""
+        missing_fields = expected_fields - actual_fields
+        self.assertFalse(missing_fields, f"Campos faltando no SupplierSerializer: {missing_fields}")
+
+    def test_item_serializer_is_complete(self):
+        """Testa que o ItemSerializer expõe todos os campos do modelo Item + extras."""
+        # O campo 'is_active' é neutralizado no modelo Item, então o excluímos
+        exclude_from_model = {'is_active'}
+        model_fields = self._get_model_field_names(Item, exclude=exclude_from_model)
+
+        # Campos extras do serializador (propriedades e métodos)
+        serializer_extras = {'total_quantity', 'is_low_stock', 'active', 'status_display', 'volume'}
+
+        expected_fields = model_fields.union(serializer_extras)
+
         self.client.force_authenticate(user=self.admin_user)
         response = self.client.get(f'/api/items/{self.item_sp.id}/')
-        
-        expected_fields = [
-            'id', 'warranty_days', 'internal_code', 'manufacturer_code', 'cfop'
-        ]
-        
-        for field in expected_fields:
-            self.assertIn(field, response.data, f"Campo {field} faltando no ItemSerializer")
+        actual_fields = set(response.data.keys())
 
-    def test_movement_type_serializer_includes_all_fields(self):
-        """Testa que MovementTypeSerializer inclui todos os campos críticos"""
+        missing_fields = expected_fields - actual_fields
+        self.assertFalse(missing_fields, f"Campos faltando no ItemSerializer: {missing_fields}")
+
+    def test_movement_type_serializer_is_complete(self):
+        """Testa que o MovementTypeSerializer expõe todos os campos do modelo + extras."""
+        model_fields = self._get_model_field_names(MovementType)
+
+        # Campos extras do serializador
+        serializer_extras = {'category_display', 'document_type_display', 'factor_display'}
+
+        expected_fields = model_fields.union(serializer_extras)
+        
         self.client.force_authenticate(user=self.admin_user)
         response = self.client.get(f'/api/movement-types/{self.movement_type_entry.id}/')
+        actual_fields = set(response.data.keys())
+
+        missing_fields = expected_fields - actual_fields
+        self.assertFalse(missing_fields, f"Campos faltando no MovementTypeSerializer: {missing_fields}")
+
+    def test_category_serializer_is_complete(self):
+        """NOVO: Testa que o CategorySerializer expõe os campos do modelo Category."""
+        # No serializer de leitura 'group' é um campo aninhado, então excluímos o 'group_id'
+        exclude_from_model = {'group_id'}
+        model_fields = self._get_model_field_names(Category, exclude=exclude_from_model)
+
+        expected_fields = model_fields
         
-        critical_fields = [
-            'code', 'category', 'category_display', 'document_type', 
-            'document_type_display', 'requires_approval', 'affects_finance'
-        ]
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get(f'/api/categories/{self.category.id}/')
+        actual_fields = set(response.data.keys())
+
+        missing_fields = expected_fields - actual_fields
+        self.assertFalse(missing_fields, f"Campos faltando no CategorySerializer: {missing_fields}")
+
+    def test_category_group_serializer_is_complete(self):
+        """NOVO: Testa que o CategoryGroupSerializer expõe os campos do modelo."""
+        model_fields = self._get_model_field_names(CategoryGroup)
         
-        for field in critical_fields:
-            self.assertIn(field, response.data, f"Campo {field} faltando no MovementTypeSerializer")
+        # O CategoryGroup não tem campos extras no serializer
+        expected_fields = model_fields
+
+        # Precisamos criar um CategoryGroup para o teste
+        category_group = CategoryGroup.objects.create(name='[TEST] Grupo de Teste')
+        
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get(f'/api/category-groups/{category_group.id}/')
+        actual_fields = set(response.data.keys())
+
+        missing_fields = expected_fields - actual_fields
+        self.assertFalse(missing_fields, f"Campos faltando no CategoryGroupSerializer: {missing_fields}")
 
 class EANValidationTests(InventoryTestMixin, APITestCase):
     """Testes para validação de código EAN"""
@@ -1138,3 +1196,247 @@ class UserProfileManagerTests(InventoryTestMixin, APITestCase):
         self.assertIn('profile', response.data)
         self.assertIn('manager', response.data['profile'])
         self.assertIn('manager_name', response.data['profile'])
+
+class CNPJValidationTests(TestCase):
+    """Testes específicos para validação de CNPJ"""
+    
+    def test_valid_cnpj(self):
+        """Testa CNPJs válidos"""
+        valid_cnpjs = [
+            '00.000.000/0001-91',  # Banco do Brasil S.A.
+            '60.701.190/0001-04',  # Itaú Unibanco S.A.
+            '00000000000191',      # Banco do Brasil (sem formatação)
+        ]
+        
+        for cnpj in valid_cnpjs:
+            with self.subTest(cnpj=cnpj):
+                try:
+                    result = validate_cnpj_format(cnpj)
+                    self.assertTrue(result)  # Não deve levantar exceção
+                except ValidationError:
+                    self.fail(f"CNPJ válido {cnpj} foi rejeitado")
+    
+    def test_invalid_cnpj(self):
+        """Testa CNPJs inválidos"""
+        invalid_cnpjs = [
+            '12345678901234',      # Dígitos verificadores incorretos
+            '11.111.111/1111-11',  # Todos dígitos iguais
+            '123',                 # Muito curto
+            '123456789012345',     # Muito longo
+            'ABCDEFGHIJKLMN',      # Letras
+        ]
+        
+        for cnpj in invalid_cnpjs:
+            with self.subTest(cnpj=cnpj):
+                with self.assertRaises(ValidationError):
+                    validate_cnpj_format(cnpj)
+    
+    def test_empty_cnpj(self):
+        """Testa que CNPJ vazio é aceito"""
+        try:
+            result = validate_cnpj_format('')
+            self.assertEqual(result, '')
+            
+            result = validate_cnpj_format(None)
+            self.assertEqual(result, None)
+            
+            result = validate_cnpj_format('   ')
+            self.assertEqual(result.strip(), '')
+        except ValidationError:
+            self.fail("CNPJ vazio não deveria levantar exceção")
+
+class SupplierCNPJIntegrationTests(InventoryTestMixin, APITestCase):
+    """Testes de integração para validação de CNPJ no Supplier"""
+    
+    def test_create_supplier_with_valid_cnpj(self):
+        """Testa criação de supplier com CNPJ válido"""
+        self.client.force_authenticate(user=self.admin_user)
+        
+        supplier_data = {
+            'name': 'Fornecedor com CNPJ Válido',
+            'country': 'BR',
+            # 👇 CORREÇÃO: Use um CNPJ que passa na validação matemática
+            'cnpj': '00.000.000/0001-91',  # CNPJ do Banco do Brasil
+            'ie': '123.456.789.012',
+            'tax_regime': 'REAL'
+        }
+        
+        response = self.client.post('/api/suppliers/', supplier_data, format='json')
+        
+        # Agora o status code deve ser 201
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+
+    def test_create_supplier_with_invalid_cnpj_fails(self):
+        """Testa que criação com CNPJ inválido é rejeitada"""
+        self.client.force_authenticate(user=self.admin_user)
+        
+        supplier_data = {
+            'name': 'Fornecedor com CNPJ Inválido',
+            'country': 'BR',
+            'cnpj': '11.111.111/1111-11',  # CNPJ inválido
+            'ie': '123.456.789.012',
+            'tax_regime': 'SIMPLE'
+        }
+        
+        response = self.client.post('/api/suppliers/', supplier_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('cnpj', response.data)
+    
+    def test_update_supplier_with_invalid_cnpj_fails(self):
+        """Testa que atualização com CNPJ inválido é rejeitada"""
+        self.client.force_authenticate(user=self.admin_user)
+        
+        # Primeiro cria um supplier válido
+        supplier = Supplier.objects.create(
+            name='Fornecedor Teste',
+            country='BR',
+            cnpj='68.714.275/0001-40',  # CNPJ válido
+            ie='123.456.789.012',
+            tax_regime='SIMPLE'
+        )
+        
+        # Tenta atualizar com CNPJ inválido
+        update_data = {'cnpj': '12345678901234'}  # CNPJ inválido
+        
+        response = self.client.patch(
+            f'/api/suppliers/{supplier.id}/', 
+            update_data, 
+            format='json'
+        )
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('cnpj', response.data)
+
+# Adicione esta nova classe de teste ao final de inventory/tests.py
+
+class SupplierCNPJOverrideTests(InventoryTestMixin, APITestCase):
+    """
+    Testa a funcionalidade de forçar o salvamento (override) para CNPJs
+    que não passam na validação matemática padrão.
+    """
+    
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        # CNPJs para os testes
+        cls.INVALID_CNPJ = '33.063.503/0001-09'  # CNPJ atípico (Globo)
+        cls.VALID_CNPJ = '00.000.000/0001-91'      # CNPJ válido (Banco do Brasil)
+
+    def test_create_supplier_with_invalid_cnpj_fails_without_override(self):
+        """
+        Verifica se a criação de um fornecedor com CNPJ inválido é bloqueada
+        quando a flag de override não é enviada.
+        """
+        self.client.force_authenticate(user=self.admin_user)
+        
+        supplier_data = {
+            'name': 'Fornecedor Inválido Sem Override',
+            'cnpj': self.INVALID_CNPJ,
+            'ie': '123456',
+            'country': 'BR',
+            'tax_regime': 'REAL'
+        }
+        
+        response = self.client.post('/api/suppliers/', supplier_data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('cnpj', response.data)
+
+    def test_create_supplier_with_invalid_cnpj_succeeds_with_override(self):
+        """
+        Verifica se a criação de um fornecedor com CNPJ inválido é bem-sucedida
+        quando a flag de override é enviada como true.
+        """
+        self.client.force_authenticate(user=self.admin_user)
+        
+        supplier_data = {
+            'name': 'Fornecedor Inválido Com Override',
+            'cnpj': self.INVALID_CNPJ,
+            'ie': '123456',
+            'country': 'BR',
+            'tax_regime': 'REAL',
+            'override_cnpj_validation': True  # <-- A flag de anulação
+        }
+        
+        response = self.client.post('/api/suppliers/', supplier_data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        # Verifica se o campo de anulação foi marcado como True no banco de dados
+        supplier = Supplier.objects.get(id=response.data['id'])
+        self.assertTrue(supplier.cnpj_validation_overridden)
+
+    def test_update_supplier_with_invalid_cnpj_succeeds_with_override(self):
+        """
+        Verifica se a atualização de um fornecedor para um CNPJ inválido
+        é bem-sucedida quando a flag de override é enviada.
+        """
+        self.client.force_authenticate(user=self.admin_user)
+        
+        update_data = {
+            'cnpj': self.INVALID_CNPJ,
+            'override_cnpj_validation': True,
+            'ie': '123.456.789.012' # 👇 ADICIONE ESTA LINHA 👇
+        }
+        
+        response = self.client.patch(f'/api/suppliers/{self.supplier.pk}/', update_data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        
+        self.supplier.refresh_from_db()
+        self.assertTrue(self.supplier.cnpj_validation_overridden)
+        self.assertEqual(self.supplier.cnpj, self.INVALID_CNPJ)
+        
+        response = self.client.patch(f'/api/suppliers/{self.supplier.pk}/', update_data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        self.supplier.refresh_from_db()
+        self.assertTrue(self.supplier.cnpj_validation_overridden)
+        self.assertEqual(self.supplier.cnpj, self.INVALID_CNPJ)
+
+    def test_create_supplier_with_valid_cnpj_does_not_set_override_flag(self):
+        """
+        Verifica se ao criar um fornecedor com CNPJ válido, a flag de override
+        permanece como False, mesmo que a anulação seja enviada.
+        """
+        self.client.force_authenticate(user=self.admin_user)
+        
+        supplier_data = {
+            'name': 'Fornecedor Válido Com Override Desnecessário',
+            'cnpj': self.VALID_CNPJ,
+            'ie': '123456',
+            'country': 'BR',
+            'tax_regime': 'REAL',
+            'override_cnpj_validation': True # Envia a flag, mas ela não deve ser usada
+        }
+        
+        response = self.client.post('/api/suppliers/', supplier_data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        supplier = Supplier.objects.get(id=response.data['id'])
+        self.assertFalse(supplier.cnpj_validation_overridden)
+
+class SupplierSerializerTests(InventoryTestMixin, APITestCase):
+    """Testes específicos para os serializers de Supplier"""
+    
+    def test_supplier_serializer_read_only_fields(self):
+        """Testa que campos read_only não aceitam queryset"""
+        serializer = SupplierSerializer(self.supplier)
+        
+        # Deve serializar sem erro
+        data = serializer.data
+        self.assertIn('parent_supplier', data)
+    
+    def test_supplier_create_serializer_with_queryset(self):
+        """Testa que serializer de escrita aceita queryset"""
+        serializer = SupplierCreateUpdateSerializer(data={
+            'name': 'Fornecedor Filial',
+            'parent_supplier': self.supplier.id,  # ✅ Deve funcionar com ID
+            'country': 'BR',
+            "ie": '123456789',
+            "tax_regime": 'SIMPLE'
+        })
+        
+        self.assertTrue(serializer.is_valid(), serializer.errors)
