@@ -16,7 +16,6 @@ const navLinks = [
     subLinks: [
       { to: "/inventory", text: "Itens" },
       { to: "/categories", text: "Categorias" },
-      { to: "/settings/movement-types", text: "Tipos de Movimento" },
     ]
   },
   {
@@ -30,7 +29,8 @@ const navLinks = [
     type: 'menu', icon: <FiSettings />, text: "Configurações",
     subLinks: [
       { to: "/settings/branches", text: "Filiais" },
-      { to: "/settings/sectors", text: "Setores" },
+      { to: "/settings/movement-types", text: "Tipos de Movimento" },
+
     ]
   },
 ];

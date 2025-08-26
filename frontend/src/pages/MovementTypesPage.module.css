@@ -1,0 +1,37 @@
+/* frontend/src/pages/MovementTypesPage.module.css */
+.pageContainer {
+  /* Estilos de container, se necessário */
+}
+
+.contentArea {
+  margin-top: var(--space-lg);
+}
+
+.tabs {
+  display: flex;
+  gap: var(--space-xs);
+  border-bottom: 2px solid var(--color-border);
+  margin-bottom: var(--space-xl);
+}
+
+.tabs button {
+  padding: var(--space-sm) var(--space-lg);
+  border: none;
+  background-color: transparent;
+  cursor: pointer;
+  font-size: var(--text-lg);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  border-bottom: 2px solid transparent;
+  transform: translateY(2px);
+  transition: all var(--transition);
+}
+
+.tabs button.active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+.tabs button:hover:not(.active) {
+  color: var(--color-text);
+}

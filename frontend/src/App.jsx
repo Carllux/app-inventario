@@ -15,6 +15,7 @@ import BranchDetailPage from './pages/BranchDetailPage';
 
 import { Toaster } from 'react-hot-toast'; 
 import CategoryManagementPage from './pages/CategoryManagementPage';
+import MovementTypesPage from './pages/MovementTypesPage';
 
 function App() {
   return (
@@ -56,6 +57,8 @@ function App() {
           
           <Route path="/settings/branches" element={<BranchesPage />} />
           <Route path="/settings/branches/:id" element={<BranchDetailPage />} />
+
+          <Route path="/settings/movement-types" element={<MovementTypesPage />} />
 
 
           {/* Futuramente, adicione outras páginas privadas aqui. Ex: */}

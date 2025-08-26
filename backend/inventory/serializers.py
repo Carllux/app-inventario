@@ -419,7 +419,7 @@ class MovementTypeSerializer(serializers.ModelSerializer):
             'units_per_package', 'parent_type', 'category', 'category_display',
             'document_type', 'document_type_display', 'requires_approval',
             'affects_finance', 'is_locked', 'allowed_for_groups', 'is_active',
-            'created_by', 'last_updated_by', 'created_at', 'updated_at'
+            'created_by', 'last_updated_by', 'created_at', 'updated_at', 'deleted_at'
         ]
 
 class MovementTypeCreateUpdateSerializer(serializers.ModelSerializer):
