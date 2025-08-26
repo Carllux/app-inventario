@@ -25,7 +25,7 @@ from .models import (
 from .serializers import (
     CategorySerializer, StockItemSerializer, SupplierSerializer, UserSerializer, BranchSerializer, SectorSerializer, LocationSerializer,
     ItemSerializer, MovementTypeSerializer, StockMovementSerializer, ItemCreateUpdateSerializer, SupplierCreateUpdateSerializer, 
-    CategoryGroupSerializer, CategoryCreateUpdateSerializer, SystemSettingsSerializer
+    CategoryGroupSerializer, CategoryCreateUpdateSerializer, SystemSettingsSerializer, SectorCreateUpdateSerializer
 )
 
 import logging
@@ -172,14 +172,24 @@ class BranchFilteredQuerysetMixin:
             return queryset.none() # Retorna um queryset vazio se não houver perfil
 
 class SectorList(BaseListView):
-    serializer_class = SectorSerializer
+    queryset = Sector.objects.all().select_related('branch') # Otimiza a query
     
-    def get_queryset(self):
-        queryset = Sector.objects.filter(is_active=True)
-        branch_id = self.request.query_params.get('branch_id')
-        if branch_id:
-            queryset = queryset.filter(branch_id=branch_id)
-        return queryset.select_related('branch')
+    def get_serializer_class(self):
+        # Usa o serializador de escrita para POST e o de leitura para GET
+        if self.request.method == 'POST':
+            return SectorCreateUpdateSerializer
+        return SectorSerializer
+
+class SectorDetailView(BaseDetailView):
+    """
+    View para detalhar, atualizar e deletar um Setor.
+    """
+    queryset = Sector.objects.all()
+    
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return SectorCreateUpdateSerializer
+        return SectorSerializer
 
 class LocationList(generics.ListCreateAPIView):
     serializer_class = LocationSerializer

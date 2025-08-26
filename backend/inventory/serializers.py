@@ -25,9 +25,32 @@ class BranchSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'updated_at', 'created_by']
 
 class SectorSerializer(serializers.ModelSerializer):
+    """Serializador de LEITURA: exibe o nome da filial."""
+    # Exibe o nome da filial em vez do ID, o que é ótimo para a UI
+    branch = serializers.StringRelatedField(read_only=True)
+
     class Meta:
         model = Sector
-        fields = ['id', 'name']
+        # Adiciona 'branch' e 'description' para uma representação completa
+        fields = ['id', 'name', 'branch', 'description', 'is_active']
+
+class SectorCreateUpdateSerializer(serializers.ModelSerializer):
+    """Serializador de ESCRITA: espera o ID da filial."""
+    # Ao criar/atualizar, o frontend enviará o ID da filial.
+    # O queryset garante que o ID enviado corresponda a uma filial existente.
+    branch = serializers.PrimaryKeyRelatedField(queryset=Branch.objects.all())
+
+    class Meta:
+        model = Sector
+        fields = ['name', 'branch', 'description']
+        # Adiciona a validação de unicidade que já existe no modelo
+        validators = [
+            UniqueTogetherValidator(
+                queryset=Sector.objects.all(),
+                fields=['branch', 'name'],
+                message="Já existe um setor com este nome nesta filial."
+            )
+        ]
 
 class CountrySerializer(serializers.Serializer):
     """Um serializador simples para representar um país com código e nome."""
