@@ -17,7 +17,12 @@ from .validators import validate_cnpj_format
 class BranchSerializer(serializers.ModelSerializer):
     class Meta:
         model = Branch
-        fields = ['id', 'name']
+        # ✅ Adiciona 'description' e outros campos de auditoria para consistência
+        fields = [
+            'id', 'name', 'description', 'is_active', 
+            'created_at', 'updated_at', 'created_by'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at', 'created_by']
 
 class SectorSerializer(serializers.ModelSerializer):
     class Meta:

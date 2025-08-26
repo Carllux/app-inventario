@@ -124,8 +124,14 @@ class BranchList(BaseListView):
     serializer_class = BranchSerializer
     
     def get_queryset(self):
-        return Branch.objects.filter(is_active=True).select_related('manager')
+        return Branch.objects.filter(is_active=True)
     
+class BranchDetailView(BaseDetailView):
+    """
+    View para detalhar, atualizar e deletar uma Filial.
+    """
+    queryset = Branch.objects.all()
+    serializer_class = BranchSerializer
 
 class BranchFilteredQuerysetMixin:
     """
