@@ -23,7 +23,7 @@ from .models import (
 
 # Bloco de import unificado para serializadores
 from .serializers import (
-    CategorySerializer, StockItemSerializer, SupplierSerializer, UserSerializer, BranchSerializer, SectorSerializer, LocationSerializer,
+    CategorySerializer, MovementTypeCreateUpdateSerializer, StockItemSerializer, SupplierSerializer, UserSerializer, BranchSerializer, SectorSerializer, LocationSerializer,
     ItemSerializer, MovementTypeSerializer, StockMovementSerializer, ItemCreateUpdateSerializer, SupplierCreateUpdateSerializer, 
     CategoryGroupSerializer, CategoryCreateUpdateSerializer, SystemSettingsSerializer, SectorCreateUpdateSerializer
 )
@@ -224,21 +224,26 @@ class MovementTypeList(BaseListView):
     """
     View principal para listar e CRIAR Tipos de Movimento na página de gerenciamento.
     """
-    # O queryset base, a ordenação virá da BaseListView
-    queryset = MovementType.objects.all() 
-    serializer_class = MovementTypeSerializer
+    queryset = MovementType.objects.all()
     search_fields = ['name', 'code']
-    # Adicionamos a capacidade de filtrar por categoria (Entrada, Saída, etc.)
     filterset_fields = ['category']
 
-class MovementTypeDetailView(generics.RetrieveUpdateDestroyAPIView):
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return MovementTypeCreateUpdateSerializer
+        return MovementTypeSerializer
+
+# ATUALIZE a MovementTypeDetailView
+class MovementTypeDetailView(BaseDetailView): # ✅ Garanta que herda de BaseDetailView
     """
     View para detalhar, atualizar e deletar um Tipo de Movimento.
-
     """
     queryset = MovementType.objects.all()
-    serializer_class = MovementTypeSerializer
-    permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return MovementTypeCreateUpdateSerializer
+        return MovementTypeSerializer
 
 # --- VIEWS PRINCIPAIS DA APLICAÇÃO ---
 

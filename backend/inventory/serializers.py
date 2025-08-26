@@ -402,41 +402,52 @@ class StockItemSerializer(serializers.ModelSerializer):
 # --- Serializadores de Movimentação (TPOs e Movimentos) ---
 
 class MovementTypeSerializer(serializers.ModelSerializer):
+    """Serializador de LEITURA para Tipos de Movimento."""
+    # Para leitura, mostramos os nomes e valores legíveis
     category_display = serializers.CharField(source='get_category_display', read_only=True)
     document_type_display = serializers.CharField(source='get_document_type_display', read_only=True)
     factor_display = serializers.CharField(source='get_factor_display', read_only=True)
-    allowed_for_groups = serializers.PrimaryKeyRelatedField(
-        many=True, 
-        queryset=Group.objects.all(), 
-        required=False
-    )
+    allowed_for_groups = serializers.StringRelatedField(many=True, read_only=True)
     created_by = serializers.StringRelatedField(read_only=True)
     last_updated_by = serializers.StringRelatedField(read_only=True)
+    parent_type = serializers.StringRelatedField(read_only=True)
 
     class Meta:
         model = MovementType
-        # Expanda a lista para incluir todos os campos
         fields = [
-            # Campos principais
-            'id', 'code', 'name', 'description', 'factor', 'factor_display', 
-            'units_per_package', 'parent_type',
-            
-            # Categorização
-            'category', 'category_display', 'document_type', 'document_type_display',
-            
-            # Regras de Negócio
-            'requires_approval', 'affects_finance', 'is_locked', 'allowed_for_groups',
-            
-            # Auditoria e Status
-            'is_active', 'created_by', 'last_updated_by', 'created_at', 
-            'updated_at', 'deleted_at'
+            'id', 'code', 'name', 'description', 'factor', 'factor_display',
+            'units_per_package', 'parent_type', 'category', 'category_display',
+            'document_type', 'document_type_display', 'requires_approval',
+            'affects_finance', 'is_locked', 'allowed_for_groups', 'is_active',
+            'created_by', 'last_updated_by', 'created_at', 'updated_at'
+        ]
+
+class MovementTypeCreateUpdateSerializer(serializers.ModelSerializer):
+    """Serializador de ESCRITA para Tipos de Movimento."""
+    # Para escrita, esperamos os IDs
+    parent_type = serializers.PrimaryKeyRelatedField(
+        queryset=MovementType.objects.all(),
+        allow_null=True,
+        required=False
+    )
+    allowed_for_groups = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Group.objects.all(),
+        required=False
+    )
+
+    class Meta:
+        model = MovementType
+        fields = [
+            'code', 'name', 'description', 'factor', 'units_per_package',
+            'parent_type', 'category', 'document_type', 'requires_approval',
+            'affects_finance', 'is_locked', 'allowed_for_groups', 'is_active'
         ]
 
     def validate(self, data):
-        """Adiciona validação para impedir que um tipo seja pai de si mesmo."""
-        # Se estamos atualizando ('instance' existe) e um 'parent_type' foi fornecido
+        """Validação para impedir que um tipo seja pai de si mesmo."""
         if self.instance and 'parent_type' in data:
-            if self.instance == data['parent_type']:
+            if self.instance == data.get('parent_type'):
                 raise serializers.ValidationError({"parent_type": "Um tipo de movimento não pode ser pai de si mesmo."})
         return data
 
