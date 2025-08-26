@@ -12,6 +12,8 @@ import SuppliersPage from './pages/SuppliersPage';
 import LocationsPage from './pages/LocationsPage';
 import BranchesPage from './pages/BranchesPage';
 import BranchDetailPage from './pages/BranchDetailPage';
+import MovementTypesAuditPage from './pages/MovementTypesAuditPage';
+import MovementLogPage from './pages/MovementLogPage';
 
 import { Toaster } from 'react-hot-toast'; 
 import CategoryManagementPage from './pages/CategoryManagementPage';
@@ -59,7 +61,8 @@ function App() {
           <Route path="/settings/branches/:id" element={<BranchDetailPage />} />
 
           <Route path="/settings/movement-types" element={<MovementTypesPage />} />
-
+          <Route path="/audit/movement-types" element={<MovementTypesAuditPage />} />
+          <Route path="/audit/movement-types/:id" element={<MovementLogPage />} />
 
           {/* Futuramente, adicione outras páginas privadas aqui. Ex: */}
           {/* <Route path="/dashboard" element={<DashboardPage />} /> */}

@@ -13,7 +13,10 @@ function CrudResourcePage({
   // eslint-disable-next-line no-unused-vars
   FormComponent: FormModal,
   itemLabel = 'name',
-  getFormProps = null // Função opcional para customizar props do form
+  getFormProps = null, // Função opcional para customizar props do form
+  canCreate = true,
+  canEdit = true,
+  canDelete = true,
 }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -81,6 +84,8 @@ function CrudResourcePage({
 
   return (
     <div>
+      {/* O PageHeader e o botão de "Adicionar" só aparecem se canCreate for true */}
+      {canCreate && (
       <PageHeader
         title={title}
         buttonLabel={`+ Adicionar ${title}`}
@@ -89,7 +94,9 @@ function CrudResourcePage({
           setIsFormModalOpen(true); 
         }}
       />
-      
+    )}
+      {/* Se não puder criar, exibe um título simples */}
+      {!canCreate && <h1>{title}</h1>}
       {error && <div className="errorMessage">{error}</div>}
       
       <main style={{ marginTop: 'var(--space-lg)' }}>
@@ -98,18 +105,16 @@ function CrudResourcePage({
             storageKey={storageKey}
             columns={columns}
             data={items}
-            onEdit={(item) => { 
-              setEditingItemId(item.id); 
-              setIsFormModalOpen(true); 
-            }}
-            onDelete={(item) => setDeleteTarget(item)}
+            // Passa as permissões para a DataTable
+            onEdit={canEdit ? (item) => { setEditingItemId(item.id); setIsFormModalOpen(true); } : null}
+            onDelete={canDelete ? (item) => setDeleteTarget(item) : null}
             highlightedId={highlightedId}
           />
         )}
       </main>
       
-
-      <FormModal {...formProps} />
+      {/* O modal de formulário só é renderizado se a criação ou edição estiverem habilitadas */}
+      {(canCreate || canEdit) && <FormComponent {...formProps} />}
 
 
       <ConfirmationModal

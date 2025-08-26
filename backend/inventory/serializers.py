@@ -399,6 +399,20 @@ class StockItemSerializer(serializers.ModelSerializer):
         model = StockItem
         fields = ['id', 'location', 'quantity', 'updated_at']
 
+class StockMovementListSerializer(serializers.ModelSerializer):
+    """Exibe uma representação detalhada e legível de uma movimentação de estoque."""
+    item = serializers.StringRelatedField()
+    location = serializers.StringRelatedField()
+    movement_type = serializers.StringRelatedField()
+    user = serializers.StringRelatedField()
+
+    class Meta:
+        model = StockMovement
+        fields = [
+            'id', 'item', 'location', 'movement_type', 'quantity', 'unit_price',
+            'total_moved_value', 'user', 'created_at', 'notes'
+        ]
+
 # --- Serializadores de Movimentação (TPOs e Movimentos) ---
 
 class MovementTypeSerializer(serializers.ModelSerializer):

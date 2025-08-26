@@ -25,7 +25,7 @@ from .models import (
 from .serializers import (
     CategorySerializer, MovementTypeCreateUpdateSerializer, StockItemSerializer, SupplierSerializer, UserSerializer, BranchSerializer, SectorSerializer, LocationSerializer,
     ItemSerializer, MovementTypeSerializer, StockMovementSerializer, ItemCreateUpdateSerializer, SupplierCreateUpdateSerializer, 
-    CategoryGroupSerializer, CategoryCreateUpdateSerializer, SystemSettingsSerializer, SectorCreateUpdateSerializer
+    CategoryGroupSerializer, CategoryCreateUpdateSerializer, SystemSettingsSerializer, SectorCreateUpdateSerializer, StockMovementListSerializer 
 )
 
 import logging
@@ -367,6 +367,18 @@ class StockMovementCreate(generics.CreateAPIView):
         Aqui definimos o usuário que está fazendo a movimentação.
         """
         serializer.save(user=self.request.user)
+
+class StockMovementListView(BaseListView): # Herda da nossa classe base para consistência
+    """
+    View para listar o histórico de movimentações de estoque (extrato).
+    Permite filtrar por tipo de movimento, item, local, etc.
+    """
+    queryset = StockMovement.objects.all().select_related(
+        'item', 'location', 'movement_type', 'user'
+    )
+    serializer_class = StockMovementListSerializer
+    # Habilita filtros poderosos para a nossa página de auditoria
+    filterset_fields = ['movement_type', 'item', 'location', 'user']        
     
 class StockItemView(BranchFilteredQuerysetMixin, generics.RetrieveUpdateAPIView):
     serializer_class = StockItemSerializer
