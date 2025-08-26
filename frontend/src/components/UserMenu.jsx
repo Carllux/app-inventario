@@ -1,48 +1,56 @@
 // frontend/src/components/UserMenu.jsx
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth'; // Importar para pegar a filial selecionada
 import { FiLogOut, FiUser, FiBriefcase, FiMapPin } from 'react-icons/fi';
+import ThemeToggle from './ThemeToggle'; // Importar o seletor de tema
 import styles from './UserMenu.module.css';
 
 function UserMenu({ user, onLogout }) {
-  const getInitials = (name = '') => {
-    const names = name.split(' ');
-    if (names.length > 1 && names[1]) {
-      return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
-    }
-    return name.substring(0, 2).toUpperCase();
+  const { selectedBranch } = useAuth(); // Pega a filial ativa do contexto
+
+  const getInitials = (firstName = '', lastName = '', username = '') => {
+    if (firstName && lastName) return `${firstName[0]}${lastName[0]}`.toUpperCase();
+    if (firstName) return firstName.substring(0, 2).toUpperCase();
+    return username.substring(0, 2).toUpperCase();
   };
 
-  // Extrai os dados do perfil para facilitar o acesso e a verificação
+  const displayName = (user.first_name && user.last_name) 
+    ? `${user.first_name} ${user.last_name}` 
+    : user.username;
+
   const profile = user?.profile;
   const hasPermissionsInfo = profile?.branches?.length > 0 || profile?.sectors?.length > 0;
 
   return (
     <div className={styles.userMenu}>
       <button className={styles.userMenuButton}>
-        <div className={styles.avatar}>{getInitials(user.username)}</div>
-        <span className={styles.username}>Olá, {user.username}</span>
+        <div className={styles.avatar}>{getInitials(user.first_name, user.last_name, user.username)}</div>
+        <span className={styles.username}>Olá, {user.first_name || user.username}</span>
       </button>
       
       <div className={styles.dropdown}>
         <div className={styles.header}>
-          <span className={styles.headerName}>{user.username}</span>
-          <span className={styles.headerDetail}>{profile?.job_title || user.email}</span>
+          <span className={styles.headerName}>{displayName}</span>
+          <span className={styles.headerDetail}>{profile?.job_title || 'Usuário'}</span>
         </div>
 
-        {/* Só renderiza a seção de permissões se houver alguma informação */}
+        {/* ✅ FEATURE: Exibe a filial selecionada atualmente */}
+        {selectedBranch && (
+          <div className={styles.section}>
+             <div className={styles.infoItem}>
+                <FiMapPin size={14} className={styles.infoIcon} />
+                <span>Operando em: <strong>{selectedBranch.name}</strong></span>
+              </div>
+          </div>
+        )}
+
         {hasPermissionsInfo && (
           <div className={styles.section}>
             {profile.branches.length > 0 && (
               <div className={styles.infoItem}>
-                <FiMapPin size={14} className={styles.infoIcon} />
-                <span>{profile.branches.map(b => b.name).join(', ')}</span>
-              </div>
-            )}
-            {profile.sectors.length > 0 && (
-              <div className={styles.infoItem}>
                 <FiBriefcase size={14} className={styles.infoIcon} />
-                <span>{profile.sectors.map(s => s.name).join(', ')}</span>
+                <span>Acesso a: {profile.branches.map(b => b.name).join(', ')}</span>
               </div>
             )}
           </div>
@@ -53,6 +61,7 @@ function UserMenu({ user, onLogout }) {
             <FiUser />
             <span>Meu Perfil</span>
           </Link>
+
           <button onClick={onLogout} className={styles.actionItem}>
             <FiLogOut />
             <span>Sair</span>

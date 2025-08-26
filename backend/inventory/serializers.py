@@ -35,6 +35,8 @@ class CountrySerializer(serializers.Serializer):
     name = serializers.CharField()
 
 class UserProfileSerializer(serializers.ModelSerializer):
+    branches = BranchSerializer(many=True, read_only=True)
+    sectors = SectorSerializer(many=True, read_only=True)
     manager = serializers.PrimaryKeyRelatedField(
         queryset=UserProfile.objects.all(), 
         allow_null=True, 
