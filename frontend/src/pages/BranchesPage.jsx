@@ -1,5 +1,7 @@
 // frontend/src/pages/BranchesPage.jsx
 import React, { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
+import { FiSettings } from 'react-icons/fi';
 import { getBranches, deleteBranch } from '../services/branchService';
 import PageHeader from '../components/PageHeader';
 import DataTable from '../components/DataTable';
@@ -52,6 +54,7 @@ function BranchesPage() {
   const columns = [
     { header: 'Nome', accessor: 'name' },
     { header: 'Descrição', accessor: 'description' },
+  
   ];
 
   return (
@@ -71,6 +74,15 @@ function BranchesPage() {
             onEdit={(branch) => { setEditingBranchId(branch.id); setIsFormModalOpen(true); }}
             onDelete={(branch) => setDeleteTarget(branch)}
             highlightedId={highlightedId}
+            renderCustomActions={(row) => (
+              <Link
+                to={`/settings/branches/${row.id}`}
+                className="button button-icon button-outline"
+                title="Gerenciar filial e setores"
+              >
+                <FiSettings />
+              </Link>
+            )}
           />
         )}
       </main>

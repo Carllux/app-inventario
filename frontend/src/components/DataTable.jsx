@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
+import { Link } from 'react-router-dom'; 
 import { FiEdit2, FiTrash2, FiArrowUp, FiArrowDown } from "react-icons/fi";
 import { FaGripVertical } from "react-icons/fa";
 import {
@@ -130,7 +131,8 @@ function DataTable({
   onEdit, 
   onDelete, 
   highlightedId, 
-  storageKey = "default" // Nova prop para identificar a tabela
+  storageKey = "default", // prop para identificar a tabela
+  renderCustomActions 
 }) {
   // Chaves únicas para cada tabela baseadas no storageKey
   const STORAGE_KEY_ORDER = `datatable_${storageKey}_column_order`;
@@ -281,7 +283,7 @@ function DataTable({
                     onSort={handleSort}
                   />
                 ))}
-                {(onEdit || onDelete) && (
+                {(onEdit || onDelete || renderCustomActions) && (
                   <th className="actions-header">Ações</th>
                 )}
               </tr>
@@ -302,8 +304,10 @@ function DataTable({
                   </td>
                 ))}
 
-                {(onEdit || onDelete) && (
+                {(onEdit || onDelete || renderCustomActions) && (
                   <td className="actions-cell">
+                    {renderCustomActions && renderCustomActions(row)}
+
                     {onEdit && (
                       <button
                         className="button button-icon button-outline"

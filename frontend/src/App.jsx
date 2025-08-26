@@ -11,7 +11,7 @@ import ItemDetailPage from './pages/ItemDetailPage';
 import SuppliersPage from './pages/SuppliersPage';
 import LocationsPage from './pages/LocationsPage';
 import BranchesPage from './pages/BranchesPage';
-
+import BranchDetailPage from './pages/BranchDetailPage';
 
 import { Toaster } from 'react-hot-toast'; 
 import CategoryManagementPage from './pages/CategoryManagementPage';
@@ -47,10 +47,16 @@ function App() {
           
           <Route path="/inventory" element={<InventoryPage />} />
           <Route path="/inventory/:id" element={<ItemDetailPage />} />
+
           <Route path="/suppliers" element={<SuppliersPage />} />
+
           <Route path="/locations" element={<LocationsPage />} />
+
           <Route path="/categories" element={<CategoryManagementPage />} />
+          
           <Route path="/settings/branches" element={<BranchesPage />} />
+          <Route path="/settings/branches/:id" element={<BranchDetailPage />} />
+
 
           {/* Futuramente, adicione outras páginas privadas aqui. Ex: */}
           {/* <Route path="/dashboard" element={<DashboardPage />} /> */}
