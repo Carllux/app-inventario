@@ -1,8 +1,9 @@
 # backend/inventory/models.py
+from inventory.validators import validate_cnpj_format
 from solo.models import SingletonModel 
 from django.db import models, transaction
 from django.contrib.auth.models import User, Group
-from django.db.models import Sum, F
+from django.db.models import Sum
 from django.core.exceptions import ValidationError
 from simple_history.models import HistoricalRecords
 from django.db.models.functions import Coalesce
@@ -220,7 +221,14 @@ class Supplier(BaseModel, AddressMixin):
         related_name='branches', verbose_name="Fornecedor Matriz"
     )
     tax_regime = models.CharField(max_length=10, choices=TaxRegime.choices, blank=True, verbose_name="Regime Tributário")
-    cnpj = models.CharField(max_length=18, blank=True, verbose_name="CNPJ (se brasileiro)")
+    cnpj = models.CharField(
+    max_length=18, 
+    blank=True, 
+    verbose_name="CNPJ (se brasileiro)",
+    validators=[validate_cnpj_format]  # ✅ Validador adicionado
+    )
+    cnpj_validation_overridden = models.BooleanField(default=False, verbose_name="Validação de CNPJ forçada")
+
     ie = models.CharField(max_length=18, blank=True, verbose_name="Inscrição estadual (se brasileiro)")
     tax_id = models.CharField(max_length=50, blank=True, verbose_name="ID Fiscal (se estrangeiro)")
     contact_person = models.CharField(max_length=100, blank=True, verbose_name="Pessoa de Contato")
@@ -246,12 +254,6 @@ class Category(BaseModel):
     def __str__(self):
         return self.name
 
-
-def validate_ean(value):
-    """Verifica se o valor é um EAN-13 válido."""
-    if value and not is_valid(value):
-        raise ValidationError(f'"{value}" não é um código EAN válido.')
-
 class ItemManager(models.Manager):
     def get_queryset(self):
         return super().get_queryset()
@@ -267,11 +269,13 @@ class ItemManager(models.Manager):
             total_quantity=Coalesce(Sum('stock_items__quantity'), 0)
         ).filter(total_quantity__lt=models.F('minimum_stock_level'))
 
-
+def validate_ean(value):
+    """Verifica se o valor é um EAN-13 válido."""
+    if value and not is_valid(value):
+        raise ValidationError(f'"{value}" não é um código EAN válido.')
 
 class Item(BaseModel, PhysicalPropertiesMixin):
     objects = ItemManager()
-
     class StatusChoices(models.TextChoices):
         ACTIVE = 'ACTIVE', 'Ativo'
         DISCONTINUED = 'DISCONTINUED', 'Fora de Linha'
@@ -316,32 +320,37 @@ class Item(BaseModel, PhysicalPropertiesMixin):
     unit_of_measure = models.CharField(max_length=20, default="UN", verbose_name="Unidade de Medida")
     minimum_stock_level = models.IntegerField(default=0)
 
-    # --- SOFT DELETE customizado ---
     def delete(self, using=None, keep_parents=False):
         """
-        Soft delete que também marca como deletados os estoques relacionados.
+        Soft delete que só permite a exclusão se o saldo total do item for zero.
         """
+        if self.total_quantity > 0:
+            raise ValidationError(
+                f"Não é possível excluir o item '{self.name}' pois ele ainda possui saldo em estoque ({self.total_quantity} unidades)."
+            )
+        
         from django.utils import timezone
         self.deleted_at = timezone.now()
         self.save(update_fields=["deleted_at"])
 
-        # Marca todos os estoques vinculados como deletados
-        self.stock_items.update(deleted_at=timezone.now())
+        # 👇 REINTRODUZA ESTA LINHA PARA A EXCLUSÃO EM CASCATA
+        # self.stock_items.all_with_deleted().update(deleted_at=timezone.now())
+
 
     def restore(self):
         """
-        Restaura o item e seus estoques relacionados.
+        Restaura o item.
         """
         self.deleted_at = None
         self.save(update_fields=["deleted_at"])
-        self.stock_items.update(deleted_at=None)
+        # A linha abaixo foi REMOVIDA para alinhar com a lógica de não-cascata
+        # self.stock_items.update(deleted_at=None) 
 
     def __str__(self):
         return f"{self.name} (SKU: {self.sku})"
         
     def save(self, *args, **kwargs):
         if self.photo and not self.photo.name.endswith('.webp'):
-            from .utils import optimize_image
             new_name, content = optimize_image(self.photo)
             self.photo.save(new_name, content, save=False)
         super().save(*args, **kwargs)
@@ -596,8 +605,6 @@ class StockMovement(TimeStampedModel):
 
             # Atribua o preço validado UMA VEZ. O bloco if/else foi removido.
             self.unit_price = price_to_check
-    
-    
 
         with transaction.atomic():
             is_new = self.pk is None
