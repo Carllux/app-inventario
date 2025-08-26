@@ -1,4 +1,4 @@
-// frontend/src/components/CategoryFormModal.jsx
+// frontend/src/components/CategoryFormModal.jsx (solução alternativa)
 import React from 'react';
 import { useCategoryForm } from '../hooks/useCategoryForm';
 import Modal from './Modal';
@@ -15,21 +15,51 @@ function CategoryFormModal({ isOpen, onClose, onSuccess, categoryId }) {
         {isLoading ? <div className="loadingState">Carregando...</div> : (
           <>
             <FormGroup label="Nome da Categoria" error={errors.name}>
-              <input type="text" name="name" value={formData.name} onChange={handleChange} required />
+              <input 
+                type="text" 
+                name="name" 
+                value={formData.name} 
+                onChange={handleChange} 
+                required 
+              />
             </FormGroup>
-            <FormGroup label="Grupo da Categoria (Opcional)" error={errors.group}>
-              <select name="group" value={formData.group} onChange={handleChange}>
+            
+            {/* Solução alternativa para o select */}
+            <div className="form-group">
+              <label htmlFor="category-group-select">
+                Grupo da Categoria (Opcional)
+              </label>
+              <select 
+                id="category-group-select"
+                name="group" 
+                value={formData.group} 
+                onChange={handleChange}
+              >
                 <option value="">Nenhum</option>
                 {groups.map(group => (
                   <option key={group.id} value={group.id}>{group.name}</option>
                 ))}
               </select>
-            </FormGroup>
+              {errors.group && (
+                <div className="error-message" role="alert">
+                  {errors.group}
+                </div>
+              )}
+            </div>
+            
             <FormGroup label="Descrição" error={errors.description}>
-              <textarea name="description" value={formData.description} onChange={handleChange} rows="3" />
+              <textarea 
+                name="description" 
+                value={formData.description} 
+                onChange={handleChange} 
+                rows="3" 
+              />
             </FormGroup>
+            
             <div className="modal-footer">
-              <button type="button" className="button button-outline" onClick={onClose} disabled={isSubmitting}>Cancelar</button>
+              <button type="button" className="button button-outline" onClick={onClose} disabled={isSubmitting}>
+                Cancelar
+              </button>
               <button type="submit" className="button button-primary" disabled={isSubmitting}>
                 {isSubmitting ? 'Salvando...' : 'Salvar'}
               </button>

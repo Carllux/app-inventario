@@ -97,10 +97,10 @@ class CategorySerializer(serializers.ModelSerializer):
     group_id = serializers.PrimaryKeyRelatedField(
         source='group',
         queryset=CategoryGroup.objects.all(),
-        write_only=True,
         allow_null=True,
         required=False
     )
+    
     # Adicione campos legíveis para as chaves estrangeiras de auditoria
     created_by = serializers.StringRelatedField(read_only=True)
     last_updated_by = serializers.StringRelatedField(read_only=True)
@@ -120,10 +120,16 @@ class CategoryCreateUpdateSerializer(serializers.ModelSerializer):
         allow_null=True, 
         required=False
     )
+    group_id = serializers.PrimaryKeyRelatedField(
+        source='group',
+        queryset=CategoryGroup.objects.all(),
+        allow_null=True,
+        required=False
+    )
 
     class Meta:
         model = Category
-        fields = ['id', 'name', 'group', 'description']
+        fields = ['id', 'name', 'group', 'group_id', 'description']
 
 class SupplierSerializer(serializers.ModelSerializer):
     """Serializador de LEITURA para Fornecedores."""
