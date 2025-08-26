@@ -2,7 +2,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
-from solo.admin import SingletonModelAdmin 
+from solo.admin import SingletonModelAdmin  # type: ignore
 
 # Importamos apenas os modelos do NOSSO app 'inventory'
 from .models import (
@@ -157,5 +157,10 @@ class StockItemAdmin(admin.ModelAdmin):
 
 @admin.register(SystemSettings)
 class SystemSettingsAdmin(SingletonModelAdmin):
-    """Admin para as configurações globais."""
-    pass
+    fieldsets = (
+        ('Configurações Padrão', {
+            'fields': ('default_branch', 'default_sector')
+        }),
+    )
+    autocomplete_fields = ['default_branch', 'default_sector']
+    
