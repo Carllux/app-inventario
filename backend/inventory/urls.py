@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
-    CategoryGroupDetailView, CategoryGroupList, CategoryList, ItemDetailView, ItemListCreateView, CustomAuthToken, StockMovementCreate, 
-    LocationList, MovementTypeList, SupplierList, user_profile_view, logout_view, ItemStockDistributionView,
+    CategoryGroupDetailView, CategoryGroupList, CategoryList, ItemDetailView, ItemListCreateView, CustomAuthToken, MovementTypeDetailView, MovementTypeListCreateView, StockMovementCreate, 
+    LocationList, SupplierList, SystemSettingsView, UserDetailView, user_profile_view, logout_view, ItemStockDistributionView,
     SupplierDetailView, CategoryDetailView, LocationDetailView, country_list_view,
 )
 
@@ -10,6 +10,7 @@ urlpatterns = [
     path('login/', CustomAuthToken.as_view(), name='api-login'),
     path('logout/', logout_view, name='api-logout'),
     path('me/', user_profile_view, name='user-profile'),
+    path('users/<int:pk>/', UserDetailView.as_view(), name='user-detail'),
 
     # Rotas da Aplicação
     path("items/", ItemListCreateView.as_view(), name="item-list"),
@@ -17,7 +18,8 @@ urlpatterns = [
     path('items/<uuid:pk>/stock/', ItemStockDistributionView.as_view(), name='item-stock-distribution'),
     
     path('movements/', StockMovementCreate.as_view(), name='stockmovement-create'),
-    path('movement-types/', MovementTypeList.as_view(), name='movementtype-list'),
+    path('movement-types/', MovementTypeListCreateView.as_view(), name='movementtype-list-create'),
+    path('movement-types/<uuid:pk>/', MovementTypeDetailView.as_view(), name='movementtype-detail'),
 
     path('locations/', LocationList.as_view(), name='location-list'),
     path('locations/<uuid:pk>/', LocationDetailView.as_view(), name='location-detail'),
@@ -32,6 +34,8 @@ urlpatterns = [
     path('suppliers/', SupplierList.as_view(), name='supplier-list'),
     path('suppliers/<uuid:pk>/', SupplierDetailView.as_view(), name='supplier-detail'),
 
+
+    path('system-settings/', SystemSettingsView.as_view(), name='system-settings'),
 
     path('utils/countries/', country_list_view, name='country-list'),
 
