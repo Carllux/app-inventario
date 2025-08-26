@@ -174,6 +174,8 @@ class BranchFilteredQuerysetMixin:
 class SectorList(BaseListView):
     queryset = Sector.objects.all().select_related('branch') # Otimiza a query
     
+    filterset_fields = ['branch']
+
     def get_serializer_class(self):
         # Usa o serializador de escrita para POST e o de leitura para GET
         if self.request.method == 'POST':
