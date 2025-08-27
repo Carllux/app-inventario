@@ -78,7 +78,7 @@
   align-items: center;
   /* Aumentamos o padding esquerdo para criar a margem interna que você queria */
   padding: var(--space-md) var(--space-lg); 
-  margin: var(--space-xs) var(--space-md);
+  margin: var(--space-sm) var(--space-xs) var(--space-sm) var(--space-xs);
   color: var(--color-sidebar-text);
   text-decoration: none;
   border-radius: var(--border-radius);

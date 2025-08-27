@@ -13,6 +13,7 @@ from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.response import Response
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
+from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 
 # Bloco de import unificado para modelos
@@ -524,3 +525,61 @@ class UserDetailView(generics.RetrieveAPIView):
     queryset = User.objects.all().select_related('profile')
     serializer_class = UserSerializer
     permission_classes = [IsAdminUser] # Apenas admins podem ver outros usuários
+
+class FilterOptionsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        base_queryset = Item.objects.none()
+
+        if user.is_staff or user.is_superuser:
+            base_queryset = Item.objects.all()
+        else:
+            try:
+                user_branches = user.profile.branches.all()
+                if user_branches.exists():
+                    base_queryset = Item.objects.filter(branch__in=user_branches)
+            except UserProfile.DoesNotExist:
+                pass
+
+        # ---- Ajuste para DISTINCT mais eficiente ----
+        category_ids = (
+            base_queryset.filter(category__isnull=False)
+            .order_by()
+            .values_list('category_id', flat=True)
+            .distinct()
+        )
+
+        supplier_ids = (
+            base_queryset.filter(supplier__isnull=False)
+            .order_by()
+            .values_list('supplier_id', flat=True)
+            .distinct()
+        )
+
+        relevant_categories = Category.objects.filter(pk__in=category_ids)
+        relevant_suppliers = Supplier.objects.filter(pk__in=supplier_ids)
+
+        relevant_statuses_keys = (
+            base_queryset.order_by()
+            .values_list('status', flat=True)
+            .distinct()
+        )
+
+        status_display_map = dict(Item.StatusChoices.choices)
+        relevant_statuses = [
+            {"value": key, "label": status_display_map.get(key, key)}
+            for key in relevant_statuses_keys
+        ]
+
+        category_serializer = CategorySerializer(relevant_categories, many=True)
+        supplier_serializer = SupplierSerializer(relevant_suppliers, many=True)
+
+        return Response(
+            {
+                "categories": category_serializer.data,
+                "suppliers": supplier_serializer.data,
+                "statuses": relevant_statuses,
+            }
+        )

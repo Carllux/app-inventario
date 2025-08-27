@@ -7,6 +7,7 @@ import ItemCard from "../components/ItemCard";
 import MovementFormModal from "../components/MovementFormModal";
 import ItemFormModal from "../components/ItemFormModal";
 import ConfirmationModal from '../components/ConfirmationModal';
+import FilterBar from "../components/FilterBar/FilterBar";
 import Spinner from "../components/Spinner";
 import styles from "./InventoryPage.module.css";
 
@@ -17,7 +18,15 @@ function InventoryPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState(null);
-  const [refreshKey, setRefreshKey] = useState(0); // Para forçar a recarga
+  // const [refreshKey, setRefreshKey] = useState(0); // Para forçar a recarga
+
+  const [filters, setFilters] = useState({
+    search: '',
+    category: '',
+    supplier: '',
+    status: ''
+  });
+
 
   // Estados dos modais
   const [movementModal, setMovementModal] = useState({ isOpen: false, item: null });
@@ -28,23 +37,26 @@ function InventoryPage() {
   useEffect(() => {
     const controller = new AbortController();
 
-    const fetchInitialItems = async () => {
+    const fetchItemsWithFilters = async () => {
       try {
         setIsLoading(true);
         setError(null);
-        const data = await getItems({ page: 1 }); // Usa o serviço
+        // Passa os filtros para o serviço de busca
+        const data = await getItems({ page: 1, ...filters }); 
         setItems(data.results || []);
         setPagination({ count: data.count || 0, next: data.next });
       } catch (err) {
-        setError(err.message);
+        if (err.name !== 'AbortError') {
+          setError(err.message);
+        }
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchInitialItems();
+    fetchItemsWithFilters();
     return () => controller.abort();
-  }, [refreshKey]); // ✅ Dispara apenas no refreshKey
+  }, [filters]); // Dispara a busca sempre que um filtro mudar
 
   // Função para carregar mais itens
   const handleLoadMore = useCallback(async () => {
@@ -56,21 +68,28 @@ function InventoryPage() {
       const nextPageUrl = new URL(pagination.next);
       const nextPage = nextPageUrl.searchParams.get("page");
       
-      const data = await getItems({ page: nextPage });
+      // Passa os filtros atuais também ao carregar mais
+      const data = await getItems({ page: nextPage, ...filters });
       
       setItems(prevItems => [...prevItems, ...(data.results || [])]);
       setPagination({ count: data.count, next: data.next });
 
+    // eslint-disable-next-line no-unused-vars
     } catch (err) {
       toast.error("Não foi possível carregar mais itens.");
     } finally {
       setIsLoadingMore(false);
     }
-  }, [pagination, isLoadingMore]);
+  }, [pagination, isLoadingMore, filters]);
 
-  const forceRefresh = () => setRefreshKey(k => k + 1);
+  const handleFilterChange = useCallback((newFilter) => {
+    setItems([]); 
+    setFilters(prevFilters => ({ ...prevFilters, ...newFilter }));
+  }, []);
+  
+  const forceRefresh = () => setFilters(prev => ({...prev}));
 
-  // Handlers para os modais
+
   const handleFormSuccess = () => {
     setItemModal({ isOpen: false, itemId: null });
     setMovementModal({ isOpen: false, item: null });
@@ -174,6 +193,10 @@ function InventoryPage() {
       <p className={styles.itemsCount}>
         {isLoading ? "Buscando informações..." : `Exibindo ${items.length} de ${pagination.count} itens no catálogo.`}
       </p>
+
+      {/* RENDERIZAR O FILTERBAR: Inserido no local ideal */}
+      <FilterBar onFilterChange={handleFilterChange} />
+
       <hr className={styles.divider} />
 
       {renderContent()}

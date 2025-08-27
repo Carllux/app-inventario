@@ -1,0 +1,75 @@
+/* src/components/FilterBar/FilterBar.module.css */
+
+.filterBar {
+  display: flex;
+  flex-wrap: wrap; /* Permite que os itens quebrem para a próxima linha */
+  gap: var(--space-md); /* Espaçamento entre os elementos (inputs/selects) */
+  padding: var(--space-lg); /* Aumentar um pouco o padding interno */
+  margin-bottom: var(--space-xl); /* Espaçamento maior abaixo da barra */
+  background-color: var(--color-white); /* Fundo branco para se destacar */
+  border: 1px solid var(--color-border); /* Borda sutil */
+  border-radius: var(--border-radius); /* Cantos arredondados */
+  box-shadow: var(--shadow-sm); /* Uma sombra leve para profundidade */
+  align-items: center; /* Alinha verticalmente os itens no centro */
+}
+
+.filterGroup { /* Um novo div para agrupar inputs/selects e controlá-los melhor */
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  flex-grow: 1; /* Permite que o grupo cresça */
+  align-items: center;
+}
+
+.filterBar input[type="text"],
+.filterBar select {
+  padding: var(--space-sm) var(--space-md); /* Padding interno */
+  border: 1px solid var(--color-input-border); /* Borda padrão para inputs */
+  border-radius: var(--border-radius-sm); /* Cantos ligeiramente arredondados */
+  background-color: var(--color-input-bg); /* Fundo claro para inputs */
+  font-size: var(--text-base); /* Tamanho da fonte consistente */
+  color: var(--color-text);
+  flex-grow: 1; /* Permite que cada input/select cresça */
+  min-width: 160px; /* Largura mínima razoável */
+  max-width: 250px; /* Largura máxima para evitar esticar demais */
+  appearance: none; /* Remove estilos padrão do navegador para selects */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23666'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E"); /* Seta customizada para selects */
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 16px;
+  cursor: pointer;
+}
+
+.filterBar input[type="text"]:focus,
+.filterBar select:focus {
+  border-color: var(--color-primary); /* Borda primária ao focar */
+  outline: none; /* Remove o outline padrão */
+  box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb), 0.2); /* Sombra de foco */
+}
+
+.filterBar input[type="text"]::placeholder {
+  color: var(--color-text-muted); /* Cor para o placeholder */
+}
+
+/* Ajustes para o campo de busca */
+.searchInput {
+  flex-grow: 2; /* Permite que o campo de busca seja um pouco maior */
+  min-width: 200px; /* Largura mínima maior para a busca */
+  max-width: 350px; /* Largura máxima para a busca */
+}
+
+/* Responsividade para telas menores */
+@media (max-width: var(--breakpoint-md)) {
+  .filterBar {
+    flex-direction: column; /* Coloca os filtros em coluna */
+    align-items: stretch; /* Estica os itens para a largura total */
+    padding: var(--space-md);
+  }
+
+  .filterBar > *, .filterGroup > * {
+    max-width: none; /* Remove largura máxima para ocupar todo o espaço */
+    width: 100%; /* Ocupa 100% da largura disponível */
+  }
+}

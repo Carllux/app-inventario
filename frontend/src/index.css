@@ -61,47 +61,77 @@
 .ml-4 { margin-left: var(--space-lg); }
 .mb-3 { margin-bottom: var(--space-md); }
 
+/* TEMA CLARO OTIMIZADO */
+/* =======================
+   TEMA CLARO
+   ======================= */
 body.light-theme {
-  /* Cores */
-  --color-background-light: rgba(0, 0, 0, 0.05);
-  --color-background-light-hover: rgba(0, 0, 0, 0.1);
-  --color-primary: #007bff;
-  --color-primary-dark: #0056b3;
-  --color-success: #28a745;
-  --color-success-dark: #218838;
-  --color-danger: #dc3545;
-  --color-danger-dark: #c82333;
-  --color-light: #f8f9fa;
-  --color-light-hover: #e9ecef;
+  --color-background: #f9f9fb;
+  --color-background-light: #ffffff;
+  --color-background-light-hover: #f0f0f3;
+
+  --color-primary: #0066cc;
+  --color-primary-dark: #004999;
+  --color-primary-light: rgba(0, 102, 204, 0.08);
+
+  --color-success: #2e7d32;
+  --color-success-dark: #1b5e20;
+
+  --color-danger: #d32f2f;
+  --color-danger-dark: #b71c1c;
+
+  --color-light: #f5f5f7;
+  --color-light-hover: #ececec;
+
   --color-white: #ffffff;
-  --color-text: #212529;
-  --color-text-muted: #6c757d;
-  --color-border: #dee2e6;
-  --color-background: #f8f9fa;
-  --color-primary-light: rgba(0, 123, 255, 0.1); /* Para estados selecionados/hover */
-  --color-focus-ring: rgba(0, 123, 255, 0.25); /* Para anéis de foco consistentes */
+
+  --color-text: #1a1a1a;
+  --color-text-muted: #7b7b7b;
+
+  --color-border: #d0d0d0;
+  --color-input-border: #c0c0c0;
+  --color-input-bg: #ffffff;
+
+  --color-focus-ring: rgba(0, 102, 204, 0.25);
+
+  --color-sidebar-text: #b7adad;
 }
 
-/* TEMA ESCURO */
+/* =======================
+   TEMA ESCURO
+   ======================= */
 body.dark-theme {
-  --color-background-light: rgba(255, 255, 255, 0.05);
-  --color-background-light-hover: rgba(255, 255, 255, 0.1);
-  --color-primary: #3a9cff;
-  --color-primary-dark: #1a7cdf;
-  --color-success: #34c759;
-  --color-success-dark: #24a749;
-  --color-danger: #ff453a;
-  --color-danger-dark: #e0352a;
-  --color-light: #2c2c2e;
-  --color-light-hover: #3a3a3c;
-  --color-white: #2c2c2e; /* No dark mode, "white" é um fundo escuro */
-  --color-text: #f8f9fa;
-  --color-text-muted: #a1a1a3;
-  --color-border: #444446;
-  --color-background: #1c1c1e;
-  --color-primary-light: rgba(58, 156, 255, 0.15);
-  --color-focus-ring: rgba(58, 156, 255, 0.3);
+  --color-background: #121212;
+  --color-background-light: #1e1e1e;
+  --color-background-light-hover: #2a2a2a;
+
+  --color-primary: #4d9bff;
+  --color-primary-dark: #2d7bdf;
+  --color-primary-light: rgba(77, 155, 255, 0.15);
+
+  --color-success: #4cd964;
+  --color-success-dark: #38b44c;
+
+  --color-danger: #ff6b6b;
+  --color-danger-dark: #e05555;
+
+  --color-light: #2a2a2a;
+  --color-light-hover: #363636;
+
+  --color-white: #181818;
+
+  --color-text: #f2f2f2;
+  --color-text-muted: #9a9a9a;
+
+  --color-border: #404040;
+  --color-input-border: #555555;
+  --color-input-bg: #1e1e1e;
+
+  --color-focus-ring: rgba(77, 155, 255, 0.35);
+
+  --color-sidebar-text: #b0b0b0;
 }
+
 
 /* Estilos para campos desabilitados no TEMA ESCURO */
 body.dark-theme input:disabled,

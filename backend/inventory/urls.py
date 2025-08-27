@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import (
-    BranchDetailView, BranchList, CategoryGroupDetailView, CategoryGroupList, CategoryList, ItemDetailView, ItemListCreateView, CustomAuthToken, MovementTypeDetailView, MovementTypeList, SectorDetailView, SectorList, StockMovementCreate, 
+    BranchDetailView, BranchList, CategoryGroupDetailView, CategoryGroupList, CategoryList, FilterOptionsView, ItemDetailView, ItemListCreateView, CustomAuthToken, MovementTypeDetailView, MovementTypeList, SectorDetailView, SectorList, StockMovementCreate, 
     LocationList, StockMovementListView, SupplierList, SystemSettingsView, UserDetailView, user_profile_view, logout_view, ItemStockDistributionView,
     SupplierDetailView, CategoryDetailView, LocationDetailView, country_list_view,
 )
@@ -45,5 +45,6 @@ urlpatterns = [
     path('system-settings/', SystemSettingsView.as_view(), name='system-settings'),
 
     path('utils/countries/', country_list_view, name='country-list'),
+    path('filter-options/', FilterOptionsView.as_view(), name='filter-options'),
 
 ]
