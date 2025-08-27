@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import PageHeader from './PageHeader';
 import DataTable from './DataTable';
 import ConfirmationModal from './ConfirmationModal';
+import Pagination from './Pagination/Pagination'; // 1. Importar o componente Pagination
 import toast from 'react-hot-toast';
 
 function CrudResourcePage({ 
@@ -10,29 +11,42 @@ function CrudResourcePage({
   storageKey, 
   columns, 
   service, 
-  // eslint-disable-next-line no-unused-vars
   FormComponent: FormModal,
   itemLabel = 'name',
-  getFormProps = null, // Função opcional para customizar props do form
+  getFormProps = null,
   canCreate = true,
   canEdit = true,
   canDelete = true,
+  canPaginate = true, // 7. Adicionar novo prop 'canPaginate' para controlar a visibilidade da paginação
 }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
+  // 2. Adicionar estado para parâmetros de busca (incluindo paginação)
+  const [params, setParams] = useState({
+    page: 1,
+    pageSize: 25, // Pode ser customizado via prop no futuro se necessário
+  });
+
+  // 3. Adicionar estado para informações da paginação (total de itens)
+  const [paginationInfo, setPaginationInfo] = useState({ count: 0 });
+
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [editingItemId, setEditingItemId] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [highlightedId, setHighlightedId] = useState(null);
 
+  // 4. Modificar a função de busca para enviar os parâmetros
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await service.getAll();
+      // Passa os parâmetros (página, etc.) para o serviço
+      const data = await service.getAll(params); 
       const itemsArray = data.results || data || [];
       setItems(itemsArray);
+      // Armazena a contagem total de itens para o componente de paginação
+      setPaginationInfo({ count: data.count || itemsArray.length });
       setError(null);
     } catch (err) {
       console.error(`Erro ao carregar ${title}:`, err);
@@ -40,7 +54,7 @@ function CrudResourcePage({
     } finally {
       setLoading(false);
     }
-  }, [service, title]);
+  }, [service, title, params]); // Adiciona 'params' à lista de dependências
 
   useEffect(() => { 
     fetchData(); 
@@ -64,23 +78,22 @@ function CrudResourcePage({
     }
   };
 
+  // 5. Adicionar handlers para as ações de paginação
+  const handlePageChange = useCallback((newPage) => {
+    setParams(prevParams => ({ ...prevParams, page: newPage }));
+  }, []);
+
+  const handlePageSizeChange = useCallback((newPageSize) => {
+    setParams(prevParams => ({ ...prevParams, page: 1, pageSize: newPageSize }));
+  }, []);
+
   const getItemName = (item) => {
     if (!item) return 'este item';
     return item[itemLabel] || item.name || item.title || 'este item';
   };
-
-  // Props base para o formulário
-  const baseFormProps = {
-    isOpen: isFormModalOpen,
-    onClose: () => setIsFormModalOpen(false),
-    onSuccess: handleFormSuccess,
-    itemId: editingItemId
-  };
-
-  // Se fornecido, usa a função customizada para obter props
-  const formProps = getFormProps 
-    ? getFormProps(baseFormProps, editingItemId) 
-    : baseFormProps;
+  
+  const baseFormProps = { /* ...código existente... */ };
+  const formProps = getFormProps ? getFormProps(baseFormProps, editingItemId) : baseFormProps;
 
   return (
     <div>
@@ -98,14 +111,13 @@ function CrudResourcePage({
       {/* Se não puder criar, exibe um título simples */}
       {!canCreate && <h1>{title}</h1>}
       {error && <div className="errorMessage">{error}</div>}
-      
+
       <main style={{ marginTop: 'var(--space-lg)' }}>
         {loading ? <div className="loadingState">Carregando...</div> : (
           <DataTable
             storageKey={storageKey}
             columns={columns}
             data={items}
-            // Passa as permissões para a DataTable
             onEdit={canEdit ? (item) => { setEditingItemId(item.id); setIsFormModalOpen(true); } : null}
             onDelete={canDelete ? (item) => setDeleteTarget(item) : null}
             highlightedId={highlightedId}
@@ -113,9 +125,18 @@ function CrudResourcePage({
         )}
       </main>
       
-      {/* O modal de formulário só é renderizado se a criação ou edição estiverem habilitadas */}
-      {(canCreate || canEdit) && <FormModal  {...formProps} />}
+      {/* 6. Renderizar o componente Pagination no final */}
+      {canPaginate && !loading && items.length > 0 && (
+        <Pagination
+          currentPage={params.page}
+          pageSize={params.pageSize}
+          totalItems={paginationInfo.count}
+          onPageChange={handlePageChange}
+          onPageSizeChange={handlePageSizeChange}
+        />
+      )}
 
+      {(canCreate || canEdit) && <FormModal  {...formProps} />}
 
       <ConfirmationModal
         isOpen={!!deleteTarget}
