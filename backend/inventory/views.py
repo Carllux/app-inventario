@@ -3,6 +3,7 @@
 from django.http import Http404
 from django_countries import countries
 from django.contrib.auth.models import User 
+from django.db.models import Count
 from rest_framework import generics, filters, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.pagination import PageNumberPagination
@@ -24,9 +25,13 @@ from .models import (
 
 # Bloco de import unificado para serializadores
 from .serializers import (
-    CategorySerializer, MovementTypeCreateUpdateSerializer, StockItemSerializer, SupplierSerializer, UserSerializer, BranchSerializer, SectorSerializer, LocationSerializer,
-    ItemSerializer, MovementTypeSerializer, StockMovementSerializer, ItemCreateUpdateSerializer, SupplierCreateUpdateSerializer, 
-    CategoryGroupSerializer, CategoryCreateUpdateSerializer, SystemSettingsSerializer, SectorCreateUpdateSerializer, StockMovementListSerializer 
+    CategorySerializer, MovementTypeCreateUpdateSerializer, StockItemSerializer,
+    SupplierSerializer, UserSerializer, BranchSerializer,
+    SectorSerializer, LocationSerializer,
+    ItemSerializer, MovementTypeSerializer, StockMovementSerializer,
+    ItemCreateUpdateSerializer, SupplierCreateUpdateSerializer, CategoryGroupSerializer,
+    CategoryCreateUpdateSerializer, SystemSettingsSerializer, SectorCreateUpdateSerializer,
+    StockMovementListSerializer, UserProfileUpdateSerializer, UserStatsSerializer
 )
 
 import logging
@@ -104,6 +109,55 @@ def logout_view(request):
             {'detail': f'Erro ao realizar logout. {e}'},
             status=status.HTTP_400_BAD_REQUEST
         )
+
+class CurrentUserView(generics.RetrieveUpdateAPIView):
+    """
+    View para um usuário ver (GET) e atualizar (PATCH) seus próprios dados.
+    GET usa UserSerializer para retornar o objeto completo.
+    PATCH usa UserProfileUpdateSerializer para salvar as alterações.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        # Para requisições de atualização (PATCH), o objeto alvo é o PERFIL.
+        if self.request.method == 'PATCH':
+            # Garante que o perfil exista antes de tentar acessá-lo
+            profile, _ = UserProfile.objects.get_or_create(user=self.request.user)
+            return profile
+        # Para requisições de leitura (GET), o objeto alvo é o USUÁRIO.
+        return self.request.user
+
+    def get_serializer_class(self):
+        # Usa o serializador de atualização para o método PATCH.
+        if self.request.method == 'PATCH':
+            return UserProfileUpdateSerializer
+        # Usa o serializador de leitura (completo) para o método GET.
+        return UserSerializer
+
+class UserStatsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+
+        # Calcula o total de itens cadastrados pelo usuário
+        items_created_count = Item.objects.filter(created_by=user).count()
+
+        # Encontra o tipo de movimento mais comum
+        most_frequent = StockMovement.objects.filter(user=user)\
+            .values('movement_type__name')\
+            .annotate(count=Count('id'))\
+            .order_by('-count')\
+            .first()
+
+        data = {
+            'items_created': items_created_count,
+            'member_since': user.date_joined,
+            'most_frequent_movement': most_frequent['movement_type__name'] if most_frequent else None
+        }
+
+        serializer = UserStatsSerializer(instance=data)
+        return Response(serializer.data)
 
 class BaseDetailView(generics.RetrieveUpdateDestroyAPIView):
     """Classe base para views de detalhe com permissão."""

@@ -69,9 +69,21 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserProfile
+        # 1. ATUALIZAR ESTA LISTA DE CAMPOS
         fields = [
-            'job_title', 'phone_number', 'hire_date', 'branches', 'sectors',
-            'manager', 'manager_name'
+            'job_title', 
+            'phone_number', 
+            'hire_date', 
+            'branches', 
+            'sectors',
+            'manager', 
+            'manager_name',
+            
+            # --- NOVOS CAMPOS ADICIONADOS ---
+            'avatar',
+            'preferred_theme',
+            'default_items_per_page',
+            'table_density',
         ]
 
 class UserSerializer(serializers.ModelSerializer):
@@ -81,7 +93,45 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'username', 'email', 'first_name', 'last_name', 'is_staff', 'profile']
+        
+class UserStatsSerializer(serializers.Serializer):
+    items_created = serializers.IntegerField()
+    member_since = serializers.DateTimeField()
+    most_frequent_movement = serializers.CharField(allow_null=True)
 
+class UserProfileUpdateSerializer(serializers.ModelSerializer):
+    """Serializador para o usuário ATUALIZAR seu próprio perfil."""
+    # Traz campos do modelo User para serem atualizados
+    first_name = serializers.CharField(source='user.first_name', required=False, allow_blank=True)
+    last_name = serializers.CharField(source='user.last_name', required=False, allow_blank=True)
+    email = serializers.EmailField(source='user.email', required=False, allow_blank=True)
+    # Adiciona o campo de imagem para o upload
+    avatar = serializers.ImageField(required=False)
+    
+    # Adiciona os campos de preferências que implementaremos a seguir
+    preferred_theme = serializers.ChoiceField(choices=UserProfile.ThemeChoices.choices, required=False)
+    default_items_per_page = serializers.IntegerField(required=False)
+    table_density = serializers.ChoiceField(choices=UserProfile.TableDensityChoices.choices, required=False)
+    class Meta:
+        model = UserProfile
+        # Lista de campos que o usuário pode editar
+        fields = [
+            'first_name', 'last_name', 'email', 'job_title', 'phone_number', 
+            'avatar', 'preferred_theme', 'default_items_per_page', 'table_density'
+        ]
+
+    def update(self, instance, validated_data):
+        # Lida com a atualização do objeto User aninhado
+        if 'user' in validated_data:
+            user_data = validated_data.pop('user')
+            user = instance.user
+            user.first_name = user_data.get('first_name', user.first_name)
+            user.last_name = user_data.get('last_name', user.last_name)
+            user.email = user_data.get('email', user.email)
+            user.save()
+        
+        # Atualiza os campos do UserProfile
+        return super().update(instance, validated_data)
 
 # --- Serializadores de Catálogo e Estoque ---
 

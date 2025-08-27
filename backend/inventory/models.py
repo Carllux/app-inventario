@@ -188,7 +188,7 @@ class UserProfile(TimeStampedModel):
         on_delete=models.SET_NULL, 
         null=True, 
         blank=True, 
-        related_name='managed_team', # Nome um pouco mais explícito
+        related_name='managed_team',
         verbose_name="Gerente Direto"
     )
     branches = models.ManyToManyField(Branch, blank=True, verbose_name="Filiais de Acesso")
@@ -197,12 +197,58 @@ class UserProfile(TimeStampedModel):
     phone_number = models.CharField(max_length=20, blank=True, verbose_name="Telefone")
     hire_date = models.DateField(null=True, blank=True, verbose_name="Data de Contratação")
     
+    # --- NOVOS CAMPOS: TEMA DE GAMIFICAÇÃO ---
+    avatar = models.ImageField(upload_to='avatars/', null=True, blank=True, verbose_name="Foto de Perfil")
+
+    # --- NOVOS CAMPOS: TEMA DE PRODUTIVIDADE ---
+    favorited_items = models.ManyToManyField(
+        'Item', 
+        blank=True, 
+        related_name='favorited_by',
+        verbose_name="Itens Favoritos"
+    )
+    favorited_suppliers = models.ManyToManyField(
+        'Supplier', 
+        blank=True, 
+        related_name='favorited_by',
+        verbose_name="Fornecedores Favoritos"
+    )
+
+    # --- NOVOS CAMPOS: PREFERÊNCIAS DE EXIBIÇÃO ---
+    class ThemeChoices(models.TextChoices):
+        SYSTEM = 'SYSTEM', 'Padrão do Sistema'
+        LIGHT = 'LIGHT', 'Claro'
+        DARK = 'DARK', 'Escuro'
+    
+    class TableDensityChoices(models.TextChoices):
+        COMFORTABLE = 'COMFORTABLE', 'Confortável'
+        COMPACT = 'COMPACT', 'Compacto'
+
+    preferred_theme = models.CharField(
+        max_length=10, 
+        choices=ThemeChoices.choices,
+        default=ThemeChoices.SYSTEM,
+        verbose_name="Tema Preferido"
+    )
+    default_items_per_page = models.PositiveIntegerField(
+        default=25,
+        validators=[MinValueValidator(10)],
+        verbose_name="Itens por Página (Padrão)"
+    )
+    table_density = models.CharField(
+        max_length=12,
+        choices=TableDensityChoices.choices,
+        default=TableDensityChoices.COMFORTABLE,
+        verbose_name="Densidade da Tabela"
+    )
+    
     @property
     def is_active(self):
         return self.user.is_active
 
     def __str__(self):
         return self.user.username
+
 
 
 # --- 2. MODELOS DE CATÁLOGO DE PRODUTOS ---

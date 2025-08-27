@@ -14,6 +14,7 @@ import BranchesPage from './pages/BranchesPage';
 import BranchDetailPage from './pages/BranchDetailPage';
 import MovementTypesAuditPage from './pages/MovementTypesAuditPage';
 import MovementLogPage from './pages/MovementLogPage';
+import ProfilePage from './pages/ProfilePage';
 
 import { Toaster } from 'react-hot-toast'; 
 import CategoryManagementPage from './pages/CategoryManagementPage';
@@ -47,7 +48,8 @@ function App() {
         {/* GRUPO DE ROTAS PRIVADAS */}
         {/* Todas as rotas aqui dentro serão protegidas e usarão o AuthenticatedLayout */}
         <Route element={ <PrivateRoute><AuthenticatedLayout /></PrivateRoute> }>
-          
+          <Route path="/profile" element={<ProfilePage />} />
+
           <Route path="/inventory" element={<InventoryPage />} />
           <Route path="/inventory/:id" element={<ItemDetailPage />} />
 

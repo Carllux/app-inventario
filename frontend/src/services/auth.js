@@ -1,7 +1,5 @@
 import api from './api'; 
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
-
 // Função para fazer o login
 export const login = async (username, password) => {
   try {
@@ -44,13 +42,46 @@ export const fetchCurrentUser = async () => {
     return response.data;
 };
 
-// // Função para verificar se o usuário está autenticado
-// export const isAuthenticated = () => {
-//   const token = localStorage.getItem('token');
-//   if (token) {
-//     // Configura o header do api se a página for recarregada
-//     api.defaults.headers.common['Authorization'] = `Token ${token}`;
-//     return true;
-//   }
-//   return false;
-// };
+// ✅ NOVO: Função para atualizar os dados do perfil
+export const updateProfile = async (profileData, avatarFile) => {
+  try {
+    const dataToSend = new FormData();
+
+    // Adiciona os campos de texto ao FormData
+    for (const key in profileData) {
+      if (profileData[key] !== null && profileData[key] !== undefined) {
+        dataToSend.append(key, profileData[key]);
+      }
+    }
+
+    // Se houver um arquivo de avatar, adiciona ao FormData
+    if (avatarFile) {
+      dataToSend.append('avatar', avatarFile);
+    }
+
+    // A API agora envia multipart/form-data
+    const response = await api.patch(`/me/`, dataToSend, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    localStorage.setItem('user', JSON.stringify(response.data));
+    return response.data;
+  } catch (error) {
+    console.error("Erro ao atualizar o perfil:", error);
+    throw error;
+  }
+};
+
+// ✅ NOVO: Função para alterar a senha
+export const changePassword = async (passwordData) => {
+  try {
+    // O endpoint exato pode variar (ex: '/auth/password/change/'), ajuste conforme seu urls.py
+    const response = await api.post('/auth/password/change/', passwordData);
+    return response.data;
+  } catch (error) {
+    console.error("Erro ao alterar a senha:", error);
+    throw error;
+  }
+};

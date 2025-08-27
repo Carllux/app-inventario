@@ -1,0 +1,103 @@
+/* src/components/ProfileCard/ProfileCard.module.css */
+
+.profileCard {
+  display: flex;
+  flex-wrap: wrap; /* Permite quebrar linha em telas menores */
+  align-items: center;
+  gap: var(--space-xl); /* Espaçamento entre as seções de avatar e info */
+  background-color: var(--color-white);
+  padding: var(--space-xl);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: var(--space-xl);
+}
+
+.avatarSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 120px; /* Garante que o avatar tenha um tamanho mínimo */
+}
+
+.avatar {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%; /* Torna a imagem circular */
+  object-fit: cover; /* Garante que a imagem preencha o espaço sem distorcer */
+  border: 3px solid var(--color-primary-light);
+  background-color: var(--color-background); /* Fundo para avatares sem imagem */
+}
+
+.uploadButton {
+  background-color: var(--color-primary);
+  color: var(--color-white);
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  transition: background-color var(--transition);
+}
+
+.uploadButton:hover {
+  background-color: var(--color-primary-dark);
+}
+
+.infoSection {
+  flex-grow: 1; /* Permite que ocupe o espaço restante */
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.infoSection h2 {
+  margin: 0;
+  font-size: var(--text-2xl);
+  color: var(--color-text-dark);
+}
+
+.infoSection .jobTitle {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-base);
+}
+
+.infoSection hr {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: var(--space-md) 0;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* 2 ou 3 colunas, flexível */
+  gap: var(--space-md);
+}
+
+.statItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--text-base);
+  color: var(--color-text);
+}
+
+.statItem svg {
+  color: var(--color-primary);
+  font-size: var(--text-xl);
+}
+
+/* Responsividade para telas menores */
+@media (max-width: var(--breakpoint-md)) {
+  .profileCard {
+    flex-direction: column;
+    text-align: center;
+  }
+  .infoSection {
+    align-items: center;
+  }
+  .statsGrid {
+    grid-template-columns: 1fr; /* Uma coluna em telas muito pequenas */
+    text-align: left; /* Alinha o texto das stats à esquerda novamente */
+  }
+}

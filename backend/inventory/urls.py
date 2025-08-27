@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
     BranchDetailView, BranchList, CategoryGroupDetailView, CategoryGroupList, CategoryList, FilterOptionsView, ItemDetailView, ItemListCreateView, CustomAuthToken, MovementTypeDetailView, MovementTypeList, SectorDetailView, SectorList, StockMovementCreate, 
-    LocationList, StockMovementListView, SupplierList, SystemSettingsView, UserDetailView, user_profile_view, logout_view, ItemStockDistributionView,
+    LocationList, StockMovementListView, SupplierList, SystemSettingsView, UserDetailView, CurrentUserView, UserStatsView, logout_view, ItemStockDistributionView,
     SupplierDetailView, CategoryDetailView, LocationDetailView, country_list_view,
 )
 
@@ -9,7 +9,9 @@ urlpatterns = [
     # Rotas de Autenticação
     path('login/', CustomAuthToken.as_view(), name='api-login'),
     path('logout/', logout_view, name='api-logout'),
-    path('me/', user_profile_view, name='user-profile'),
+    path('me/', CurrentUserView.as_view(), name='current-user'), 
+    path('me/stats/', UserStatsView.as_view(), name='current-user-stats'),
+
     path('users/<int:pk>/', UserDetailView.as_view(), name='user-detail'),
 
     # Rotas da Aplicação
