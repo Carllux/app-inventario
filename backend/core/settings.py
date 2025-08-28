@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'drf_yasg',               # Para documentação da API (instalaremos depois)
     'django_countries',
     'solo.apps.SoloAppConfig',
+    'simple_history',
     # Meus Apps
     'inventory',
 ]
@@ -56,6 +57,8 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # Auditoria
+    'simple_history.middleware.HistoryRequestMiddleware',    
 ]
 
 ROOT_URLCONF = "core.urls"

@@ -3,7 +3,7 @@
 from django.http import Http404
 from django_countries import countries
 from django.contrib.auth.models import User 
-from django.db.models import Count
+from django.db.models import Count, Value, CharField, F, IntegerField
 from rest_framework import generics, filters, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.pagination import PageNumberPagination
@@ -31,7 +31,8 @@ from .serializers import (
     ItemSerializer, MovementTypeSerializer, StockMovementSerializer,
     ItemCreateUpdateSerializer, SupplierCreateUpdateSerializer, CategoryGroupSerializer,
     CategoryCreateUpdateSerializer, SystemSettingsSerializer, SectorCreateUpdateSerializer,
-    StockMovementListSerializer, UserProfileUpdateSerializer, UserStatsSerializer
+    StockMovementListSerializer, UserProfileUpdateSerializer, ActivityLogSerializer,
+    UserStatsSerializer
 )
 
 import logging
@@ -637,3 +638,113 @@ class FilterOptionsView(APIView):
                 "statuses": relevant_statuses,
             }
         )
+
+class UserActivityLogView(APIView):
+    permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+
+    def get(self, request, *args, **kwargs):
+        user = self.request.user
+        user_id = user.id
+
+        common_fields = ['history_id', 'history_date', 'history_type', 'history_user_id', 'id']
+
+        # 1. StockMovement History
+        stock_movement_history = StockMovement.history.filter(history_user_id=user_id).annotate(
+            record_name=F('item__name'),
+            item_name=F('item__name'),  # Campo real
+            movement_type_name=F('movement_type__name'),  # Campo real
+            model_name=Value('StockMovement', output_field=CharField()),
+        ).values(*common_fields, 'record_name', 'item_name', 'movement_type_name', 'model_name', 'user_id').order_by()
+
+        # 2. Item History
+        item_history = Item.history.filter(history_user_id=user_id).annotate(
+            record_name=F('name'),
+            item_name=Value(None, output_field=CharField()),  # <-- CORREÇÃO
+            movement_type_name=Value(None, output_field=CharField()),  # <-- CORREÇÃO
+            model_name=Value('Item', output_field=CharField()),
+            user_id=Value(None, output_field=IntegerField())
+        ).values(*common_fields, 'record_name', 'item_name', 'movement_type_name', 'model_name', 'user_id').order_by()
+
+        # 3. Supplier History
+        supplier_history = Supplier.history.filter(history_user_id=user_id).annotate(
+            record_name=F('name'),
+            item_name=Value(None, output_field=CharField()),  # <-- CORREÇÃO
+            movement_type_name=Value(None, output_field=CharField()),  # <-- CORREÇÃO
+            model_name=Value('Supplier', output_field=CharField()),
+            user_id=Value(None, output_field=IntegerField())
+        ).values(*common_fields, 'record_name', 'item_name', 'movement_type_name', 'model_name', 'user_id').order_by()
+        
+        # 4. UserProfile History
+        profile_history = UserProfile.history.filter(history_user_id=user_id).annotate(
+            record_name=Value('Seu Perfil'),
+            item_name=Value(None, output_field=CharField()),  # <-- CORREÇÃO
+            movement_type_name=Value(None, output_field=CharField()),  # <-- CORREÇÃO
+            model_name=Value('UserProfile', output_field=CharField())
+        ).values(*common_fields, 'record_name', 'item_name', 'movement_type_name', 'model_name', 'user_id').order_by()
+
+        # 5. Branch History
+        branch_history = Branch.history.filter(history_user_id=user_id).annotate(
+            record_name=F('name'),
+            item_name=Value(None, output_field=CharField()),  # <-- CORREÇÃO
+            movement_type_name=Value(None, output_field=CharField()),  # <-- CORREÇÃO
+            model_name=Value('Branch', output_field=CharField()),
+            user_id=Value(None, output_field=IntegerField())
+        ).values(*common_fields, 'record_name', 'item_name', 'movement_type_name', 'model_name', 'user_id').order_by()
+
+        # 6. Category History
+        category_history = Category.history.filter(history_user_id=user_id).annotate(
+            record_name=F('name'),
+            item_name=Value(None, output_field=CharField()),  # <-- CORREÇÃO
+            movement_type_name=Value(None, output_field=CharField()),  # <-- CORREÇÃO
+            model_name=Value('Category', output_field=CharField()),
+            user_id=Value(None, output_field=IntegerField())
+        ).values(*common_fields, 'record_name', 'item_name', 'movement_type_name', 'model_name', 'user_id').order_by()
+
+        # 7. CategoryGroup History
+        category_group_history = CategoryGroup.history.filter(history_user_id=user_id).annotate(
+            record_name=F('name'),
+            item_name=Value(None, output_field=CharField()),  # <-- CORREÇÃO
+            movement_type_name=Value(None, output_field=CharField()),  # <-- CORREÇÃO
+            model_name=Value('CategoryGroup', output_field=CharField()),
+            user_id=Value(None, output_field=IntegerField())
+        ).values(*common_fields, 'record_name', 'item_name', 'movement_type_name', 'model_name', 'user_id').order_by()
+
+        # 8. Location History
+        location_history = Location.history.filter(history_user_id=user_id).annotate(
+            record_name=F('name'),
+            item_name=Value(None, output_field=CharField()),  # <-- CORREÇÃO
+            movement_type_name=Value(None, output_field=CharField()),  # <-- CORREÇÃO
+            model_name=Value('Location', output_field=CharField()),
+            user_id=Value(None, output_field=IntegerField())
+        ).values(*common_fields, 'record_name', 'item_name', 'movement_type_name', 'model_name', 'user_id').order_by()
+
+        # 9. MovementType History
+        movement_type_history = MovementType.history.filter(history_user_id=user_id).annotate(
+            record_name=F('name'),
+            item_name=Value(None, output_field=CharField()),  # <-- CORREÇÃO
+            movement_type_name=Value(None, output_field=CharField()),  # <-- CORREÇÃO
+            model_name=Value('MovementType', output_field=CharField()),
+            user_id=Value(None, output_field=IntegerField())
+        ).values(*common_fields, 'record_name', 'item_name', 'movement_type_name', 'model_name', 'user_id').order_by()
+
+        # Une todos os querysets
+        queryset = stock_movement_history.union(
+            item_history, supplier_history, profile_history, branch_history,
+            category_history, category_group_history, location_history, movement_type_history,
+            all=True
+        )
+        
+        all_results = list(queryset)
+        all_results.sort(key=lambda x: x['history_date'], reverse=True)
+
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(all_results, request, view=self)
+
+        if page is not None:
+            serializer = ActivityLogSerializer(page, many=True, context={'request': request})
+            return paginator.get_paginated_response(serializer.data)
+
+        serializer = ActivityLogSerializer(all_results, many=True, context={'request': request})
+        return Response(serializer.data)
+    

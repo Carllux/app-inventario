@@ -101,3 +101,41 @@
     text-align: left; /* Alinha o texto das stats à esquerda novamente */
   }
 }
+
+.orgDetails {
+  margin-top: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  width: 100%;
+}
+
+.detailItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--color-text-muted);
+}
+
+.detailItem strong {
+  color: var(--color-text);
+}
+
+.detailIcon {
+  color: var(--color-primary);
+}
+
+.tagContainer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.tag {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: var(--text-xs);
+  font-weight: 500;
+}

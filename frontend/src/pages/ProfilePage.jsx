@@ -7,6 +7,7 @@ import FormGroup from '../components/FormGroup';
 import Spinner from '../components/Spinner';
 import styles from './ProfilePage.module.css';
 import ProfileCard from '../components/ProfileCard/ProfileCard';
+import ActivityTimeline from '../components/ActivityTimeline/ActivityTimeline';
 
 
 // --- Sub-componente para a Aba de Detalhes (Props ajustadas) ---
@@ -139,12 +140,16 @@ function ProfilePage() {
         <button className={activeTab === 'security' ? styles.active : ''} onClick={() => setActiveTab('security')}>
           Segurança
         </button>
+        <button className={activeTab === 'history' ? styles.active : ''} onClick={() => setActiveTab('history')}>
+          Meu Histórico
+        </button>
       </div>
 
       <div className={styles.tabContent}>
         {activeTab === 'details' && <ProfileDetailsTab {...formProps} />}
         {activeTab === 'preferences' && <ProfilePreferencesTab {...formProps} />}
         {activeTab === 'security' && <ProfileSecurityTab />}
+        {activeTab === 'history' && <ActivityTimeline />}
       </div>
     </div>
   );

@@ -600,3 +600,84 @@ class SystemSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = SystemSettings
         fields = ['default_branch', 'default_sector']
+
+class ActivityLogSerializer(serializers.Serializer):
+    """Serializador definitivo para o log de atividades do usuário."""
+    # Estes são os campos que a view nos fornece a partir do .values()
+    # Eles são "write_only" porque só os usamos para CÁLCULO,
+    # não para serem exibidos diretamente na API.
+    history_id = serializers.IntegerField(write_only=True)
+    history_date = serializers.DateTimeField(write_only=True)
+    history_type = serializers.CharField(write_only=True)
+    history_user_id = serializers.IntegerField(write_only=True)
+    model_name = serializers.CharField(write_only=True)
+    record_name = serializers.CharField(write_only=True, allow_null=True)
+    item_name = serializers.CharField(required=False, write_only=True, allow_null=True)
+    movement_type_name = serializers.CharField(required=False, write_only=True, allow_null=True)
+    # O campo 'id' do objeto original, que pode ser UUID ou int. Lemos como string.
+    original_record_id = serializers.CharField(source='id', write_only=True, required=False, allow_null=True)
+    # O campo 'user_id' específico do UserProfile. Lemos como int.
+    user_profile_pk = serializers.IntegerField(source='user_id', write_only=True, required=False, allow_null=True)
+
+    # --- CAMPOS QUE REALMENTE APARECEM NA RESPOSTA DA API ---
+    # Estes são os campos que serão calculados e enviados para o frontend.
+    timestamp = serializers.DateTimeField(source='history_date', read_only=True)
+    user = serializers.SerializerMethodField(read_only=True)
+    action_type = serializers.SerializerMethodField(read_only=True)
+    description = serializers.SerializerMethodField(read_only=True)
+    target_url = serializers.SerializerMethodField(read_only=True)
+
+    def get_description(self, obj):
+        action_map = {'+': 'adicionou', '~': 'atualizou', '-': 'deletou'}
+        action_verb = action_map.get(obj['history_type'], 'modificou')
+        
+        model_type = obj['model_name']
+        record_name = obj.get('record_name')
+
+        if model_type == 'StockMovement':
+            if obj['history_type'] == '+':
+                return f"Você realizou o movimento '{obj.get('movement_type_name')}' no item '{obj.get('item_name')}'."
+            return f"Você {action_verb} um registro de movimentação."
+
+        if model_type == 'UserProfile':
+            return f"Você {action_verb} os dados do seu perfil."
+
+        model_name_map = {
+            'Item': 'o item', 'Supplier': 'o fornecedor', 'Branch': 'a filial',
+            'Sector': 'o setor', 'Location': 'a locação', 'Category': 'a categoria',
+            'MovementType': 'o tipo de movimento', 'CategoryGroup': 'o grupo de categoria',
+        }
+        model_name_display = model_name_map.get(model_type, 'o registro')
+        return f"Você {action_verb} {model_name_display} '{record_name}'."
+
+    def get_user(self, obj):
+        request = self.context.get('request')
+        if request and request.user.id == obj['history_user_id']:
+            full_name = request.user.get_full_name()
+            return full_name if full_name else request.user.username
+        return "Usuário Desconhecido"
+
+    def get_action_type(self, obj):
+        model_name = obj['model_name']
+        action_map = {'+': 'CREATED', '~': 'UPDATED', '-': 'DELETED'}
+        action = action_map.get(obj['history_type'], 'MODIFIED')
+        return f"{model_name}_{action}"
+
+    def get_target_url(self, obj):
+        model_name = obj['model_name']
+        
+        if model_name == 'UserProfile':
+            return '/profile' # URL para UserProfile é estática
+        
+        # Para outros modelos, use o ID original do registro
+        record_id = obj.get('original_record_id')
+        if not record_id:
+            return None
+
+        url_map = {
+            'Item': f'/inventory/{record_id}',
+            'Branch': f'/settings/branches/{record_id}',
+            'UserProfile': '/profile', # URL para UserProfile é estática, não precisa do ID
+            'Supplier': f'/suppliers/{record_id}',
+        }
+        return url_map.get(model_name)

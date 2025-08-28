@@ -144,6 +144,8 @@ class SoftDeleteMixin(models.Model):
 
 class BaseModel(UUIDMixin, TimeStampedModel, AuditMixin, IsActiveMixin, SoftDeleteMixin):
     """Um modelo base que inclui timestamps, auditoria e status de ativação."""
+    history = HistoricalRecords(inherit=True)
+
     class Meta:
         ordering = ['-created_at']
         abstract = True
@@ -182,6 +184,7 @@ class Location(BaseModel):
         return f"{self.name} ({self.branch.name})"
 
 class UserProfile(TimeStampedModel):
+    history = HistoricalRecords()
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     manager = models.ForeignKey(
         'self', 
@@ -413,13 +416,10 @@ class Item(BaseModel, PhysicalPropertiesMixin):
     @property
     def active(self):
         """Retorna True se o status do item for 'ATIVO'."""
-        return self.status == self.StatusChoices.ACTIVE
-
-    
+        return self.status == self.StatusChoices.ACTIVE    
 
 class MovementType(BaseModel):
     """Define um Tipo de Operação (TPO) de estoque, sua natureza e regras."""
-    
     class FactorChoices(models.IntegerChoices):
         ADD = 1, 'Adicionar ao Estoque'
         SUBTRACT = -1, 'Subtrair do Estoque'
@@ -462,7 +462,6 @@ class MovementType(BaseModel):
         validators=[MinValueValidator(1)],
         help_text="Para operações com pacotes/caixas, define o fator multiplicador"
     )
-
     # Categorização e Controle
     category = models.CharField(
         max_length=5,
@@ -498,23 +497,17 @@ class MovementType(BaseModel):
         default=False,
         help_text="Tipos bloqueados não podem ser editados"
     )
-
     # Relacionamentos
     allowed_for_groups = models.ManyToManyField(
         Group,
         blank=True,
         help_text="Grupos com permissão para usar este tipo de movimento"
     )
-
     # Metadados
     description = models.TextField(
         blank=True,
         help_text="Descrição detalhada das regras e uso deste tipo"
     )
-    history = HistoricalRecords(
-        excluded_fields=['units_per_package'],
-    )
-
     class Meta:
         verbose_name = "Tipo de Movimento"
         verbose_name_plural = "Tipos de Movimento"
@@ -546,17 +539,14 @@ class MovementType(BaseModel):
         
         if errors:
             raise ValidationError(errors)
-
     @property
     def is_inbound(self):
         """Retorna True se for um movimento de entrada"""
         return self.factor == self.FactorChoices.ADD
-
     @property
     def is_outbound(self):
         """Retorna True se for um movimento de saída"""
         return not self.is_inbound
-
     def get_effective_quantity(self, input_quantity):
         """
         Calcula a quantidade efetiva que será adicionada/subtraída do estoque
@@ -564,7 +554,6 @@ class MovementType(BaseModel):
         """
         multiplier = self.units_per_package or 1
         return input_quantity * multiplier * self.factor
-
     def save(self, *args, **kwargs):
         """Garante validações e comportamentos padrão ao salvar"""
         self.full_clean()  # Executa todas as validações
@@ -613,6 +602,7 @@ class StockItem(BaseModel):
 
 class StockMovement(TimeStampedModel):
     """Registra cada transação de estoque (o extrato)."""
+    history = HistoricalRecords()
     item = models.ForeignKey(Item, on_delete=models.PROTECT, related_name='movements')
     location = models.ForeignKey(Location, on_delete=models.PROTECT, related_name='location_movements')
     movement_type = models.ForeignKey(MovementType, on_delete=models.PROTECT)
@@ -692,3 +682,13 @@ class SystemSettings(SingletonModel):
 
     def __str__(self):
         return "Configurações do Sistema"
+    
+
+class ActivityLog(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="activities")
+    action = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.action}"
+    

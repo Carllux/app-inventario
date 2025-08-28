@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
     BranchDetailView, BranchList, CategoryGroupDetailView, CategoryGroupList, CategoryList, FilterOptionsView, ItemDetailView, ItemListCreateView, CustomAuthToken, MovementTypeDetailView, MovementTypeList, SectorDetailView, SectorList, StockMovementCreate, 
-    LocationList, StockMovementListView, SupplierList, SystemSettingsView, UserDetailView, CurrentUserView, UserStatsView, logout_view, ItemStockDistributionView,
+    LocationList, StockMovementListView, SupplierList, SystemSettingsView, UserActivityLogView, UserDetailView, CurrentUserView, UserStatsView, logout_view, ItemStockDistributionView,
     SupplierDetailView, CategoryDetailView, LocationDetailView, country_list_view,
 )
 
@@ -11,6 +11,8 @@ urlpatterns = [
     path('logout/', logout_view, name='api-logout'),
     path('me/', CurrentUserView.as_view(), name='current-user'), 
     path('me/stats/', UserStatsView.as_view(), name='current-user-stats'),
+    path('me/activity-log/', UserActivityLogView.as_view(), name='current-user-activity-log'),
+
 
     path('users/<int:pk>/', UserDetailView.as_view(), name='user-detail'),
 

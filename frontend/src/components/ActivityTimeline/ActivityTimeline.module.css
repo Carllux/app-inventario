@@ -1,0 +1,13 @@
+/* src/components/ActivityTimeline/ActivityTimeline.module.css */
+.timeline {
+  /* Estilos para o container da timeline */
+}
+.timelineItem {
+  display: flex;
+  position: relative;
+  padding-bottom: var(--space-lg);
+}
+.timelineIcon {
+  /* Estilos para o ícone */
+}
+/* Adicione mais estilos para a linha vertical e conteúdo */

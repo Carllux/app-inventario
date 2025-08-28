@@ -3,11 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import styles from './ProfileCard.module.css';
-import { FaUser, FaBoxOpen, FaSyncAlt, FaCalendarCheck } from 'react-icons/fa'; // Exemplo com react-icons
+import { FaUser, FaBoxOpen, FaSyncAlt, FaCalendarCheck, FaBuilding, FaBriefcase, FaUserTie } from 'react-icons/fa';
 
 const ProfileCard = ({ user, avatarPreview, onAvatarChange }) => {
   const [stats, setStats] = useState(null);
 
+  const displayName = user.first_name ? `${user.first_name} ${user.last_name}`.trim() : user.username;
   const memberSinceDate = stats?.member_since ? new Date(stats.member_since) : null;
   const formattedMemberSince = memberSinceDate && !isNaN(memberSinceDate) 
                                ? memberSinceDate.toLocaleDateString(navigator.language, { year: 'numeric', month: 'long', day: 'numeric' }) 
@@ -24,7 +25,6 @@ const ProfileCard = ({ user, avatarPreview, onAvatarChange }) => {
     fetchStats();
   }, []);
   
-  const displayName = user.first_name ? `${user.first_name} ${user.last_name}`.trim() : user.username;
   
   return (
     <div className={styles.profileCard}>
@@ -51,6 +51,35 @@ const ProfileCard = ({ user, avatarPreview, onAvatarChange }) => {
             <span>Membro desde {formattedMemberSince}</span>
           </div>
         </div>
+        {/* --- NOVA SEÇÃO DE DETALHES ORGANIZACIONAIS --- */}
+        <div className={styles.orgDetails}>
+          <div className={styles.detailItem}>
+            <FaUserTie className={styles.detailIcon} />
+            <strong>Gerente Direto:</strong>
+            <span>{user.profile?.manager_name || 'Não definido'}</span>
+          </div>
+          <div className={styles.detailItem}>
+            <FaBuilding className={styles.detailIcon} />
+            <strong>Filiais de Acesso:</strong>
+            <div className={styles.tagContainer}>
+              {user.profile?.branches?.length > 0 
+                ? user.profile.branches.map(b => <span key={b.id} className={styles.tag}>{b.name}</span>)
+                : <span>Nenhuma</span>
+              }
+            </div>
+          </div>
+          <div className={styles.detailItem}>
+            <FaBriefcase className={styles.detailIcon} />
+            <strong>Setores de Atuação:</strong>
+            <div className={styles.tagContainer}>
+            {user.profile?.sectors?.length > 0 
+                ? user.profile.sectors.map(s => <span key={s.id} className={styles.tag}>{s.name}</span>)
+                : <span>Nenhum</span>
+              }
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   );
