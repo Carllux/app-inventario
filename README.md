@@ -13,10 +13,8 @@
 
 <p align="center">
   <img src="assets/capa.png" alt="MainPage" width="80%"/>
-_Demonstração da MainPage._
-  
 </p>
-
+  
 
 ## 📖 Sobre o Projeto
 
@@ -162,3 +160,4 @@ Este é o backlog atual de funcionalidades e melhorias planejadas para versões 
 * Refatorar Seletor de Colunas da `DataTable` para Componente Dedicado e retrátil.
 * Exibir ID do Registro nos Modais de Edição para suporte.
 * Corrigir e Estabilizar a Função de Destaque (Highlight) de Novas Linhas.
+
