@@ -1,4 +1,3 @@
-# Sistema de Gestão de Inventário Full-Stack
 <p align="center">
   <img src="https://img.shields.io/badge/Status-Em%20Desenvolvimento-blue?style=for-the-badge" alt="Status do Projeto: Em Desenvolvimento"/>
   <img src="https://img.shields.io/badge/Backend-Django%20REST%20Framework-092E20?style=for-the-badge&logo=django&logoColor=white" alt="Backend: Django REST Framework"/>
@@ -9,6 +8,8 @@
   <img src="https://img.shields.io/badge/Estilo-CSS%20Modules-264de4?style=for-the-badge&logo=css3&logoColor=white" alt="Estilo: CSS Modules"/>
   <img src="https://img.shields.io/badge/Features-Multi--Filial%20|%20Controle%20de%20Estoque-orange?style=for-the-badge" alt="Principais Features"/>
 </p>
+
+<h1 align="center">Sistema de Gestão de Inventário Full-Stack</h1>
 
 
 <p align="center">
